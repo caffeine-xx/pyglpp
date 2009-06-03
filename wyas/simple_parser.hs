@@ -2,6 +2,7 @@ import Text.ParserCombinators.Parsec hiding (spaces)
 import System.IO
 import System.Environment
 import Monad(liftM)
+import Control.Monad.Error
 
 data LispVal = Atom String
   | List [LispVal]
@@ -10,13 +11,16 @@ data LispVal = Atom String
   | String String
   | Bool Bool
 
+data LispError = NumArgs Integer [LispVal]
+  | TypeMismatch String LispVal
+  | Parser ParseError
+  | BadSpecialForm String LispVal
+  | NotFunction String String
+  | UnboundVar String String
+  | Default String
+
 instance Show LispVal where show = showVal
-
- -- main :: IO ()
- -- main = do 
- --   args <- getArgs
- --   putStrLn (readExpr (args !! 0))
-
+instance Show LispError where show = showError
 main :: IO ()
 main = getArgs >>= putStrLn . show . eval . readExpr . head
 
@@ -30,10 +34,21 @@ showVal v = case v of
   (List l) -> "(" ++ unwordsList l ++ ")"
   (DottedList head tail) -> "(" ++ unwordsList head ++ " . " ++ showVal tail ++ ")"
 
+showError :: LispError -> String
+showError err = case err of
+  (UnboundVar msg var) -> msg ++ ": " ++ var
+  (BadSpecialForm msg frm) -> msg ++ ": " ++ show frm
+  (NotFunction msg fn) -> msg ++ ": " ++ show fn
+  (NumArgs num found) -> "# args expected: " ++ show num ++
+    ", found: " ++ unwordsList found
+  (TypeMismatch exp found) -> "type error, expected: " ++ show exp ++
+    ", found: " ++ show found
+  (Parser parseErr) = "Parse error at: " ++ show parseErr
+
 readExpr :: String -> LispVal
 readExpr input = case parse parseExpr "lisp" input of
-    Left err  -> String $ "no match: " ++ show err
-    Right val -> val
+  Left err  -> String $ "no match: " ++ show err
+  Right val -> val
 
 unwordsList :: [LispVal] -> String
 unwordsList = unwords . map showVal
@@ -127,6 +142,7 @@ eval val = case val of
   val@(Bool _) -> val
   (List [Atom "quote", val]) -> val
   (List (Atom func : args)) -> apply func $ map eval args
+  -- _ -> Bool False
 
 apply :: String -> [LispVal] -> LispVal
 apply func args = maybe (Bool False) ($ args) $ lookup func primitives
@@ -137,11 +153,11 @@ primitives = [
   ("-",numericBinop (-)),
   ("*",numericBinop (*)),
   ("/",numericBinop div),
-  ("mod", numericBinop mod ),
-  ("quotient", numericBinop quot ),
-  ("remainder", numericBinop rem ),
-  ("symbol?",  typeCheck $ Atom "a"),
-  ("boolean?", typeCheck $ Bool True) ]
+  ("mod", numericBinop mod),
+  ("quotient", numericBinop quot),
+  ("remainder", numericBinop rem),
+  ("symbol?",  is_atom),
+  ("boolean?", is_bool) ]
 
 numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> LispVal
 numericBinop op parms = Number $ foldl1 op $ map unpackNum parms
@@ -156,16 +172,13 @@ unpackNum (String n) =
 unpackNum (List [n]) = unpackNum n
 unpackNum _ = 0
 
-typeCheck2 :: (Eq -> LispVal) -> LispVal -> LispVal
-typeCheck2 f [(f v)] = Bool True
-typeCheck2 _ _ = Bool False
+is_atom :: [LispVal] -> LispVal
+is_atom [Atom _] = Bool True
+is_atom       _  = Bool False 
 
-typeCheck :: LispVal -> [LispVal] -> LispVal
-typeCheck t [a] = case (t,a) of
-  ((Atom _), (Atom _) )-> Bool True
-  ((Number _), (Number _)  )-> Bool True
-  ((Bool _), (Bool _)) -> Bool True
-  ((String _), (String _)) -> Bool True
-  (_,_) -> Bool False
-typeCheck t x = Bool False
+is_bool :: [LispVal] -> LispVal
+is_bool [Bool _] = Bool True
+is_bool       _  = Bool False
+
+
 
