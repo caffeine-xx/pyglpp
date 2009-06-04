@@ -1,4 +1,4 @@
-:wqclass Memoize(object):
+class Memoize(object):
   """
   Use as a decorator to cache the results of a function.  The function must
   have the following properties:
