@@ -1,8 +1,9 @@
 import numpy as np
+import scipy.optimize as opt
 import random as rd
 import math
 
-# cos^2 stimulus
+
 def cos_stimulus(time,period):
   return np.asarray(map(lambda t: math.cos(t*math.pi*2/period)**2,range(0,time)))
 
@@ -10,50 +11,39 @@ def spike_train(stim):
   return np.asarray(map(lambda t: rd.random() < t,stim))
 
 def spike_times(train):
-  times = []
-  for t, s in enumerate(train):
-    if s:
-      times.append(t)
-  return times
+  return filter(lambda t: train[t], range(train.size))
 
 def cos_filter(size):
   base = map(lambda i: i * math.pi / (2*size), range(0,size))
   return map(lambda i: math.cos(i), base)
 
-def data_slice(t, size, stim, spikes):
-  start = max(t-size,0)
-  return np.concatenate(([1], stim[start:t], spikes[start:t])) 
+def data_slicer(size, stim, spikes):
+  start = lambda t: max(t-size,0)
+  sliced =lambda t: np.concatenate(([1], stim[start(t):t], spikes[start(t):t])) 
+  return lambda t: np.asmatrix(sliced(t))
 
 def filt_slice(mu, stim_filter, hist_filter):
-  return np.concatenate(([mu], stim_filter, hist_filter))
+  sliced = np.concatenate(([mu], stim_filter, hist_filter))
+  return np.asmatrix(sliced)
 
-def loglike(delta, mu, stim, stim_filter, spikes, spike_filter):
-  theta = filt_slice(mu, stim_filter, spike_filter)
-  size = stim_filter.size
-  times = spike_times(spikes)
-  data = lambda t: data_slice(t, size, stim, spikes)
-  logint = lambda t: np.dot(theta,data(t))
-  intensities = map(logint, range(spikes.size))
-  term1 = sum([intensities[t] for t in times])
-  term2 = sum([delta*math.exp(intensities[t]) for t in range(spikes.size)])
-  return term1 - term2
+def logI(t, theta, data):
+  return theta * data(t).T
 
-def logL(theta, data, delta, time, sp_times):
-  intensities = map(lambda t: np.dot(theta,data(t)), range(time))
-  term1 = sum([intensities[t] for t in sp_times])
-  term2 = sum([delta*math.exp(intensities[t]) for t in range(time)])
+def logL(theta, data, delta, time, size, sp_times):
+  intensities = [logI(t, theta, data) for t in range(size,time)]
+  term1 = sum([intensities[t-size] for t in sp_times])
+  term2 = sum([delta*math.exp(intensities[t-size]) for t in range(size,time)])
   return term1-term2
 
-def logL_grad(theta, data, delta, time, sp_times):
+def logL_grad(theta, data, delta, time, size, sp_times):
   term1 = sum([data(t) for t in sp_times])
-  term2 = sum([delta * math.exp(np.dot(theta, data(t))) * data(t) for t in range(time)])
-  return term1 - term2
+  term2 = sum([delta * math.exp(logI(t,theta,data)) * data(t) for t in range(size,time)])
+  return term1-term2
 
-def logL_hess(theta, data, delta, time, sp_times)
+def logL_hess(theta, data, delta, time, size, sp_times):
   datm = lambda t: np.matrix(data(t))
-  dsqu = lambda t: datm(t) * datm(t).T
-  int = lambda t: math.exp( np.dot(theta, data(t)) )
-  return -1 * delta * sum([dsqu(t)*int(t) for t in range(time)])
+  dsqu = lambda t: datm(t).T * datm(t)
+  return -1 * delta * sum([dsqu(t)*math.exp(logI(t,theta,data)) for t in range(size,time)])
 
 def max_likelihood(delta, size, spikes, stim):
   theta = filt_slice(1, np.zeros(size), np.zeros(size))
@@ -61,10 +51,36 @@ def max_likelihood(delta, size, spikes, stim):
   data = lambda t: data_slice(t, size, stim, spikes)
   
 
-def test():
-  stim = cos_stimulus(1000,200)
+def testopt():
+  time = 1000
+  size = 40
+  stim = cos_stimulus(time,200)
   spikes = spike_train(stim)
-  sf = cos_filter(30)
-  hf = cos_filter(50)
-  return log_likelihood(spikes, stim, hf, sf)
+  times = filter(lambda t: t > size, spike_times(spikes))
+  sf = cos_filter(size)
+  hf = cos_filter(size)
+  delta = 1
+  theta = filt_slice(1, sf, hf)
+  data = data_slicer(size, stim, spikes)
+  args = (data, delta, time, size, times)
+  hess_p = lambda th, p, *args: logL_hess(th, *args) * p
+  x = opt.fmin_ncg(logL, theta, fprime=logL_grad, fhess_p=hess_p, args=args)
+  return x
+
+
+
+time = 1000
+size = 40
+stim = cos_stimulus(time,200)
+spikes = spike_train(stim)
+times = filter(lambda t: t > size, spike_times(spikes))
+sf = cos_filter(size)
+hf = cos_filter(size)
+delta = 1
+theta = filt_slice(1, sf, hf)
+data = data_slicer(size, stim, spikes)
+args = (data, delta, time, size, times)
+
+
+
 
