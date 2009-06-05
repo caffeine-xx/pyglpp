@@ -20,7 +20,6 @@ def cos_filter(size):
 def rand_filter(size):
   return [rd.random() for i in range(size)]
 
-
 def data_slicer(size, stim, spikes):
   start = lambda t: max(t-size,0)
   sliced =lambda t: np.concatenate(([1], stim[start(t):t], spikes[start(t):t])) 
@@ -48,14 +47,25 @@ def logL_grad(theta, data, delta, time, size, sp_times):
 def logL_hess(theta, data, delta, time, size, sp_times):
   datm = lambda t: np.matrix(data(t))
   dsqu = lambda t: datm(t).T * datm(t)
-  return -1 * delta * sum([dsqu(t)*math.exp(logI(t,theta,data)) for t in range(size,time)])
+  result = -1 * delta * sum([dsqu(t)*math.exp(logI(t,theta,data)) for t in range(size,time)])
+  return np.asarray(np.reshape(result,[theta.size,theta.size]))
 
-def max_likelihood(delta, size, spikes, stim):
+def logL_hess_p(theta, p, *args):
+  hessian = np.asmatrix(logL_hess(theta,*args))
+  p = np.asmatrix(p)
+  return np.asarray(hessian * p)
+
+def maxL(opt, delta, size, spikes, stim):
   theta = filt_slice(1, np.zeros(size), np.zeros(size))
   times = spike_times(spikes)
-  data = lambda t: data_slice(t, size, stim, spikes)
+  data = Memoize(data_slicer(size, stim, spikes))
+  args = (data, delta, spikes.size, size, times)
+  f = lambda theta: -1 * logL(theta, *args)
+  fp = lambda theta: -1 * logL_grad(theta, *args)
+  fh = lambda theta, p: -1 * logL_hess_p(theta, p, *args)
+  return opt(f=f, x0=theta, fprime=fp, fhess_p=fh)
   
-
+  
 def testopt():
   time = 1000
   size = 40
@@ -71,21 +81,4 @@ def testopt():
   hess_p = lambda th, p, *args: logL_hess(th, *args) * p
   x = opt.fmin_ncg(logL, theta, fprime=logL_grad, fhess_p=hess_p, args=args)
   return x
-
-
-
-time = 1000
-size = 40
-stim = cos_stimulus(time,200)
-spikes = spike_train(stim)
-times = filter(lambda t: t > size, spike_times(spikes))
-sf = rand_filter(size)
-hf = rand_filter(size)
-delta = 1
-theta = filt_slice(1, sf, hf)
-data = data_slicer(size, stim, spikes)
-args = (data, delta, time, size, times)
-
-
-
 
