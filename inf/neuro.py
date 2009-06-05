@@ -16,13 +16,12 @@ def poiss_train(theta,stim,delta,time,size):
     lam = inten(t-1)
     spikes[t] = (poisson(delta*lam,1)>0)
   return spikes
-    
 
 def spike_train(stim):
   return np.asarray(map(lambda t: rd.random() < t,stim))
 
-def spike_times(train):
-  return filter(lambda t: train[t], range(train.size))
+def spike_times(start,train):
+  return filter(lambda t: train[t], range(start,train.size))
 
 def cos_filter(size):
   base = map(lambda i: i * math.pi / (2*size), range(0,size))
@@ -64,11 +63,11 @@ def logL_hess(theta, data, delta, time, size, sp_times):
 def logL_hess_p(theta, p, *args):
   hessian = np.asmatrix(logL_hess(theta,*args))
   p = np.asmatrix(p)
-  return np.asarray(hessian * p)
+  return np.asarray(hessian * p.T)
 
 def maxL(opt, delta, size, spikes, stim):
   theta = filt_slice(1, np.zeros(size), np.zeros(size))
-  times = spike_times(spikes)
+  times = spike_times(size,spikes)
   data = Memoize(data_slicer(size, stim, spikes))
   args = (data, delta, spikes.size, size, times)
   f = lambda theta: -1 * logL(theta, *args)
@@ -76,40 +75,3 @@ def maxL(opt, delta, size, spikes, stim):
   fh = lambda theta, p: -1 * logL_hess_p(theta, p, *args)
   return opt(f=f, x0=theta, fprime=fp, fhess_p=fh)
   
-  
-def testopt():
-  time = 1000
-  size = 40
-  stim = cos_stimulus(time,200)
-  spikes = spike_train(stim)
-  times = filter(lambda t: t > size, spike_times(spikes))
-  sf = cos_filter(size)
-  hf = cos_filter(size)
-  delta = 1
-  theta = filt_slice(1, sf, hf)
-  data = data_slicer(size, stim, spikes)
-  args = (data, delta, time, size, times)
-  hess_p = lambda th, p, *args: np.reshape( logL_hess(th, *args) * p,[p.size,p.size])
-  x = opt.fmin_ncg(logL, theta, fprime=logL_grad, fhess_p=hess_p, args=args)
-  return x
-
-<<<<<<< HEAD:inf/neuro.py
-=======
-
-
-time = 1000
-size = 40
-stim = cos_stimulus(time,200)
-times = filter(lambda t: t > size, spike_times(spikes))
-sf = cos_filter(size)
-hf = cos_filter(size)
-delta = 0.005
-spikes = poiss_train(theta,stim,delta,time,size)
-theta = filt_slice(1, sf, hf)
-data = Memoize(data_slicer(size, stim, spikes))
-args = (data, delta, time, size, times)
-
-
-
-
->>>>>>> 447692add333877a9126c9f86bab9d22a0236d82:inf/neuro.py
