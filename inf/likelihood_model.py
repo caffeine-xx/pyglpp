@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.optimize as opt
 import basis as b
+import math as m
 from memoize import Memoize
 
 class LikelihoodModel:
@@ -21,54 +22,91 @@ class LikelihoodModel:
     raise Exception('not implemented')
 
 class MultiNeuron(LikelihoodModel):
-""" Multi-neuron Poisson model with cosine bases"""
-  def __init__(self, delta, time, stimulus, spike_trains, sparse, basis):
-    self.spikes=spike_trains
-    self.stims=stimulus
-    self.sparse=sparse
-    self.basis=Memoize(basis)
-    self.delta=delta
-    self.time=time
-    self.neu=spike_trains.shape[0]
+  """ Multi-neuron Poisson model with cosine bases"""
+
+  def __init__(self, delta, tau, stimulus, spikes, sparse, basis):
+    # simulation size   
+    self.N, self.T = spikes.shape
+    self.Nx = stimulus.shape[0]
+    self.ind = range(tau.size+1,self.T)
+    
+    # parameters
+    self.spikes = spikes
+    self.stims  = stimulus
+    self.basis  = basis
+    self.delta  = delta
+    self.tau    = tau # time vector of a filter 
+    
+    # get rid of spikes before filter duration
+    self.sparse = [filter(lambda t: t > tau.size, sparse[i]) for i in range(0,self.N)]
+    
+    # slices of spike train or stimulus one time-window wide
+    self.spike_slice = lambda t: self.spikes[:,max(0,t-tau.size):t]
+    self.stim_slice  = lambda t: self.stims[:,max(0,t-tau.size):t]
+    
+    # spike-triggered total slices 
+    self.st_spike= self.N * [np.zeros([self.N,tau.size])]
+    self.st_stim = self.N * [np.zeros([self.Nx,tau.size])]
+    for i in range(0,self.N):
+      self.st_spike[i] = sum([self.spike_slice(t) for t in self.sparse[i]])
+      self.st_stim[i]  = sum([self.stim_slice(t) for t in self.sparse[i]])
+    
+    # overall total slices
+    self.tt_spike= sum([self.spike_slice(t) for t in self.ind])
+    self.tt_stim = sum([self.stim_slice(t) for t in self.ind])
 
   def pack(self, K, H, Mu):
     shapes = (K.size, K.shape, H.size, H.shape, Mu.size, Mu.shape)
-    theta = np.concatenate(
-      np.ndarray.ravel(K),
-      np.ndarray.ravel(H), 
-      np.ndarray.ravel(Mu))
-    return theta, (shapes)
-  
-  def unpack(self, theta, *args)
+    theta = np.r_[np.ndarray.ravel(K),np.ndarray.ravel(H),np.ndarray.ravel(Mu)]
+    return theta, shapes
+
+  def unpack(self, theta, *args):
     (Ksize, Kshape, Hsize, Hshape, Musize, Mushape) = args[0]
     K = np.ndarray.reshape(theta[0:Ksize], Kshape)
-    H = np.ndarray.reshape(theta[Ksize:Hsize], Hshape)
-    Mu= np.ndarray.reshape(theta[(Ksize+Hsize):Musize], Mushape)
+    H = np.ndarray.reshape(theta[Ksize:Ksize+Hsize], Hshape)
+    Mu= np.ndarray.reshape(theta[(Ksize+Hsize):Ksize+Hsize+Musize], Mushape)
     return K, H, Mu
-  
-  @Memoize
+
   def get_filtered(self, i, K, H, Mu):
-    k_i = b.filter_builder(K[i,:,:], self.time, self.basis)
-    Fk_i = np.sum(b.run_filter(self.stims, k_i),0)
-    h_i = filter_builder(H[i,:,:], self.time, self.basis)
-    Fh_i = np.sum(b.run_filter(self.spikes, h_i),0)
+    k_i = b.filter_builder(K[i,:,:], self.tau, self.basis)
+    h_i = b.filter_builder(H[i,:,:], self.tau, self.basis)
     m_i = Mu[i]
+    Fk_i = np.sum(b.run_filter(self.stims, k_i),0)
+    Fh_i = np.sum(b.run_filter(self.spikes, h_i),0)
     return Fk_i + Fh_i + m_i
 
   def logL(self, K, H, Mu):
-    lam = lambda i: self.get_filtered(self, i, K, H, Mu)
-    t1 = 0
-    t2 = 0
-    for i in range(0,self.neu):
-      t1 = t1 + b.selective_sum(lam(i),self.sparse)
-      t2 = t2 + np.sum(self.exp(lam(i)))
+    lam = Memoize(lambda i: self.get_filtered(i, K, H, Mu))
+    t1 = sum([b.selective_sum(lam(i),self.sparse[i]) for i in range(0,self.N)])
+    t2 = sum([np.sum(np.ma.exp(lam(i))) for i in range(0,self.N)])
     return t1 - self.delta*t2
 
-  def logL_grad(self, K, H, Mu)
-    lam = lambda i: self.get_filtered(self, i, K, H, Mu)
+  def logL_grad(self, K, H, Mu):
+    lam = Memoize(lambda i: self.get_filtered(i, K, H, Mu))
     
+    dK = np.zeros([self.N, self.Nx, self.tau.size])
+    dH = np.zeros([self.N, self.N, self.tau.size])
+    dM = np.zeros([self.N])
+    
+    for i in range(0,self.N):
+      for j in range(0,self.Nx):
+        t1 = self.st_stim[i][j,:]
+        t2 = sum([self.stim_slice(t)[j] * lam(i)[t] for t in self.ind])
+        dK[i,j,:] = t1-self.delta*t2
+      for j in range(0,self.N):
+        t1 = self.st_spike[i][j,:]
+        t2 = sum([self.spike_slice(t)[j] * lam(i)[t] for t in self.ind])
+        dH[i,j,:] = t1-self.delta*t2
+      t1 = len(self.sparse[i])
+      t2 = lam(i).sum()
+      dM[i]= t1-self.delta*t2
+    
+    dK = np.sum(dK,0)
+    dH = np.sum(dH,0)
+    
+    return dK, dH, dM
 
-
+"""
 class SingleNeuron(LikelihoodModel):
   def logI(self,t, theta, data):
     return np.reshape(theta * data(t).T,[1])
@@ -95,4 +133,4 @@ class SingleNeuron(LikelihoodModel):
     hessian = np.asmatrix(logL_hess(theta,*args))
     p = np.asmatrix(p)
     return np.asarray(p * hessian )
-
+"""

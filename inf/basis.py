@@ -9,6 +9,10 @@ def cos_basis(a, c):
   bas = lambda n,j,t: (dis(t) > (phi(n,j) - m.pi) and dis(t) < (phi(n,j) + m.pi)) * ((1.0/2.0)*(1 + m.cos(dis(t) - phi(n,j))))
   return np.vectorize(bas)
 
+def straight_basis(a):
+  bas = lambda n, j, t: a
+  return np.vectorize(bas)
+
 # for single column/row of coeffs only
 def combine_bases(coeffs, tau, basis):
   filter = np.zeros(tau.shape)
@@ -24,6 +28,20 @@ def filter_builder(arr, tau, basis):
     filter[i,:] = combine_bases(arr[i,:], tau, basis)
   return filter
 
+
+def run_bases(bases, data):
+"""Correlates a dataset with a set of bases.
+   Takes a 2D array to a 3D array, where the 
+   dimensions are [basis, rows, cols]"""
+  rows,cols = data.shape
+  num,size = bases.shape
+  result = np.zeros([num,rows,cols])
+  corr = lambda i,j: sig.correlate(data[j],bases[i])
+  for i in range(0,num):
+    for j in range(0,rows):
+      result[i,j,:] = corr(i,j)
+  return result
+
 # runs a filter on some data
 def run_filter(data, filter):
   rows,cols = data.shape
@@ -32,6 +50,6 @@ def run_filter(data, filter):
 
 # sums together the values at particular times
 # time is the 2nd dimension
-# sums up the data in those rows
-def selective_sum(filtered, times):
-  return sum(filtered[:,tuple(times)])
+# sums up the data in those cols
+def selective_sum(filtered, times,axis=0):
+  return np.sum(filtered[:,tuple(times)],axis=axis)

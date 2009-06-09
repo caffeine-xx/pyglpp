@@ -7,20 +7,22 @@ class MLEstimator(lm.LikelihoodModel):
   def __init__(self, model):
     self.model = model
 
-  def logL(theta, args):
+  def logL(self,theta, *args):
     a = self.model.unpack(theta, args)
-    return self.model.logL(*a)
+    return -1*self.model.logL(*a)
 
-  def logL_grad(theta, args):
+  def logL_grad(self,theta, *args):
     a = self.model.unpack(theta, args)
-    return self.model.logL_grad(*a)
+    theta, shape = self.model.pack(*tuple(self.model.logL_grad(*a)))
+    return -1*theta
 
+  def maximize(self,*a):
+    theta, args = self.model.pack(*a)
+    theta = opt.fmin_cg(self.logL, theta, self.logL_grad,  args=args)
+    return self.model.unpack(theta, args)
+
+"""
   def logL_hess_p(theta, args):
     a = self.model.unpack(theta, args)
     return self.model.logL_hess(*a)
-
-  def maximize(*a):
-    theta, args = self.model.pack(*a)
-    theta = opt.fmin_ncg(-1*logL, theta, -1*logL_grad, -1*logL_hess_p, args=args)
-    return self.model.unpack(theta, args)
-
+"""

@@ -6,6 +6,9 @@ import math
 def cos_stim(time,period):
   return np.asarray(map(lambda t: math.cos(t*math.pi*2/period)**2,range(0,time)))
 
+def rand_stim(time):
+  return np.asarray(map(lambda t: rd.random(),range(0,time)))
+
 def poiss_train(theta,stim,delta,size):
   time = stim.size
   spikes = np.zeros(time)
@@ -17,9 +20,7 @@ def poiss_train(theta,stim,delta,size):
   return spikes, times
 
 def rand_train(stim):
-  spikes = np.asarray(map(lambda t: rd.random() < t,stim))
-  times = spike_times(stim)
-  return spikes, times
+  return np.asarray(map(lambda t: rd.random() < t,stim))
 
 def spike_times(train):
   return filter(lambda t: train[t], range(train.size))
