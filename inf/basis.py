@@ -28,9 +28,3 @@ def run_filter(data, filter):
   rows,cols = data.shape
   corr = lambda i: sig.correlate(data[i],filter,mode='same')
   return np.array([corr(i) for i in range(0,rows)])
-
-# sums together the values at particular times
-# time is the 2nd dimension
-# sums up the data in those cols
-def selective_sum(filtered, times,axis=0):
-  return np.sum(filtered[:,tuple(times)],axis=axis)

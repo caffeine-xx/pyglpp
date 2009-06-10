@@ -79,36 +79,8 @@ class MultiNeuron(LikelihoodModel):
         dK[i,j,:] -= self.delta * np.sum(self.base_stims[j,:,:] * np.ma.exp(I[i,:]).reshape((I[i,:].size,1)),0)
       for j in range(0,self.N):
         dH[i,j,:] = sum([self.base_spikes[j,t,:] for t in self.sparse[i]])
-        dH[i,j,:] -= self.delta * np.sum(self.base_spikes[j,:,:] * np.ma.exp(I[i,:]).T.reshape((I[i,:].size,1)),0)
+        dH[i,j,:] -= self.delta * np.sum(self.base_spikes[j,:,:] * np.ma.exp(I[i,:]).reshape((I[i,:].size,1)),0)
       t1 = len(self.sparse[i])
       dM[i]= len(self.sparse[i])-self.delta*np.sum(I[i,:])
     return dK, dH, dM
 
-"""
-class SingleNeuron(LikelihoodModel):
-  def logI(self,t, theta, data):
-    return np.reshape(theta * data(t).T,[1])
-
-  def logL(self,theta, data, delta, time, size, sp_times):
-    intensities = [logI(t, theta, data) for t in range(size,time)]
-    term1 = sum([intensities[t-size] for t in sp_times])
-    term2 = sum([delta*math.exp(intensities[t-size]) for t in range(size,time)])
-    return np.array(term1-term2)
-
-  def logL_grad(self,theta, data, delta, time, size, sp_times):
-    term1 = sum([data(t) for t in sp_times])
-    term2 = sum([delta * math.exp(logI(t,theta,data)) * data(t) for t in range(size,time)])
-    result = np.array(term1-term2)
-    return np.reshape(result, [result.size])
-
-  def logL_hess(self,theta, data, delta, time, size, sp_times):
-    datm = lambda t: np.matrix(data(t))
-    dsqu = lambda t: datm(t).T * datm(t)
-    result = -1 * delta * sum([dsqu(t)*math.exp(logI(t,theta,data)) for t in range(size,time)])
-    return np.asarray(np.reshape(result,[theta.size,theta.size]))
-
-  def logL_hess_p(self,theta, p, *args):
-    hessian = np.asmatrix(logL_hess(theta,*args))
-    p = np.asmatrix(p)
-    return np.asarray(p * hessian )
-"""
