@@ -14,7 +14,7 @@ class MLEstimator(lm.LikelihoodModel):
   def logL_grad(self,theta, *args):
     a = self.model.unpack(theta, args)
     theta, shape = self.model.pack(*tuple(self.model.logL_grad(*a)))
-    return -1*theta
+    return theta
 
   def maximize(self,*a):
     theta, args = self.model.pack(*a)

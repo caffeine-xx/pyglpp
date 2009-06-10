@@ -24,36 +24,19 @@ class LikelihoodModel:
 class MultiNeuron(LikelihoodModel):
   """ Multi-neuron Poisson model with cosine bases"""
 
-  def __init__(self, delta, tau, stimulus, spikes, sparse, basis):
-    # simulation size   
+  def __init__(self, delta, tau, stimulus, spikes, sparse, stim_basis, spike_basis):
     self.N, self.T = spikes.shape
     self.Nx = stimulus.shape[0]
     self.ind = range(tau.size+1,self.T)
-    
-    # parameters
     self.spikes = spikes
     self.stims  = stimulus
-    self.basis  = basis
     self.delta  = delta
-    self.tau    = tau # time vector of a filter 
-    
-    # get rid of spikes before filter duration
+    self.tau    = tau 
     self.sparse = [filter(lambda t: t > tau.size, sparse[i]) for i in range(0,self.N)]
-    
-    # slices of spike train or stimulus one time-window wide
-    self.spike_slice = lambda t: self.spikes[:,max(0,t-tau.size):t]
-    self.stim_slice  = lambda t: self.stims[:,max(0,t-tau.size):t]
-    
-    # spike-triggered total slices 
-    self.st_spike= self.N * [np.zeros([self.N,tau.size])]
-    self.st_stim = self.N * [np.zeros([self.Nx,tau.size])]
-    for i in range(0,self.N):
-      self.st_spike[i] = sum([self.spike_slice(t) for t in self.sparse[i]])
-      self.st_stim[i]  = sum([self.stim_slice(t) for t in self.sparse[i]])
-    
-    # overall total slices
-    self.tt_spike= sum([self.spike_slice(t) for t in self.ind])
-    self.tt_stim = sum([self.stim_slice(t) for t in self.ind])
+    self.spike_b= spike_basis.shape[0]
+    self.stim_b = stim_basis.shape[0]
+    self.base_spikes = b.run_bases(spike_basis, spikes)
+    self.base_stims  = b.run_bases(stim_basis, stimulus)
 
   def pack(self, K, H, Mu):
     shapes = (K.size, K.shape, H.size, H.shape, Mu.size, Mu.shape)
@@ -67,43 +50,38 @@ class MultiNeuron(LikelihoodModel):
     Mu= np.ndarray.reshape(theta[(Ksize+Hsize):Ksize+Hsize+Musize], Mushape)
     return K, H, Mu
 
-  def get_filtered(self, i, K, H, Mu):
-    k_i = b.filter_builder(K[i,:,:], self.tau, self.basis)
-    h_i = b.filter_builder(H[i,:,:], self.tau, self.basis)
-    m_i = Mu[i]
-    Fk_i = np.sum(b.run_filter(self.stims, k_i),0)
-    Fh_i = np.sum(b.run_filter(self.spikes, h_i),0)
-    return Fk_i + Fh_i + m_i
+  def logI(self, K, H, Mu):
+    I = np.zeros([self.N,self.T])
+    for i in range(0,self.N):
+      for j in range(0,self.Nx):
+        I[i,:] += sum([self.base_stims[j,:,l] * K[i,j,l] for l in range(0,self.stim_b)])
+      for j in range(0,self.N):
+        I[i,:] += sum([self.base_spikes[j,:,l] * H[i,j,l] for l in range(0,self.spike_b)])
+      I[i,:] += Mu[i]
+    return I
 
   def logL(self, K, H, Mu):
-    lam = Memoize(lambda i: self.get_filtered(i, K, H, Mu))
-    t1 = sum([b.selective_sum(lam(i),self.sparse[i]) for i in range(0,self.N)])
-    t2 = sum([np.sum(np.ma.exp(lam(i))) for i in range(0,self.N)])
+    I = self.logI(K,H,Mu)
+    t1 = 0
+    for i in range(0,self.N):
+      t1 += sum([I[i,t] for t in self.sparse[i]])
+    t2 = np.sum(np.sum(np.ma.exp(I)))
     return t1 - self.delta*t2
 
   def logL_grad(self, K, H, Mu):
-    lam = Memoize(lambda i: self.get_filtered(i, K, H, Mu))
-    
-    dK = np.zeros([self.N, self.Nx, self.tau.size])
-    dH = np.zeros([self.N, self.N, self.tau.size])
+    I = self.logI(K,H,Mu)
+    dK = np.zeros([self.N, self.Nx, self.stim_b])
+    dH = np.zeros([self.N, self.N, self.spike_b])
     dM = np.zeros([self.N])
-    
     for i in range(0,self.N):
       for j in range(0,self.Nx):
-        t1 = self.st_stim[i][j,:]
-        t2 = sum([self.stim_slice(t)[j] * lam(i)[t] for t in self.ind])
-        dK[i,j,:] = t1-self.delta*t2
+        dK[i,j,:] = sum([self.base_stims[j,t,:] for t in self.sparse[i]])
+        dK[i,j,:] -= self.delta * np.sum(self.base_stims[j,:,:] * np.ma.exp(I[i,:]).reshape((I[i,:].size,1)),0)
       for j in range(0,self.N):
-        t1 = self.st_spike[i][j,:]
-        t2 = sum([self.spike_slice(t)[j] * lam(i)[t] for t in self.ind])
-        dH[i,j,:] = t1-self.delta*t2
+        dH[i,j,:] = sum([self.base_spikes[j,t,:] for t in self.sparse[i]])
+        dH[i,j,:] -= self.delta * np.sum(self.base_spikes[j,:,:] * np.ma.exp(I[i,:]).T.reshape((I[i,:].size,1)),0)
       t1 = len(self.sparse[i])
-      t2 = lam(i).sum()
-      dM[i]= t1-self.delta*t2
-    
-    dK = np.sum(dK,0)
-    dH = np.sum(dH,0)
-    
+      dM[i]= len(self.sparse[i])-self.delta*np.sum(I[i,:])
     return dK, dH, dM
 
 """

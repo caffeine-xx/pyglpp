@@ -28,24 +28,20 @@ def filter_builder(arr, tau, basis):
     filter[i,:] = combine_bases(arr[i,:], tau, basis)
   return filter
 
-
 def run_bases(bases, data):
-"""Correlates a dataset with a set of bases.
-   Takes a 2D array to a 3D array, where the 
-   dimensions are [basis, rows, cols]"""
+  """Correlates a dataset with a set of bases.
+   Takes a 2D array to a 3D array, """
   rows,cols = data.shape
   num,size = bases.shape
-  result = np.zeros([num,rows,cols])
-  corr = lambda i,j: sig.correlate(data[j],bases[i])
+  result = np.zeros([rows,cols,num])
   for i in range(0,num):
-    for j in range(0,rows):
-      result[i,j,:] = corr(i,j)
+    result[:,:,i] = run_filter(data,bases[i])
   return result
 
-# runs a filter on some data
+# runs a filter row-wise on some data
 def run_filter(data, filter):
   rows,cols = data.shape
-  corr = lambda i: sig.correlate(data[i],filter[i])
+  corr = lambda i: sig.correlate(data[i],filter,mode='same')
   return np.array([corr(i) for i in range(0,rows)])
 
 # sums together the values at particular times
