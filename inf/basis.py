@@ -13,14 +13,6 @@ def straight_basis(a):
   bas = lambda n, j, t: a
   return np.vectorize(bas)
 
-# assembles a multi-dimensional filter
-def filter_builder(arr, tau, basis):
-  rows, cols = arr.shape
-  filter = np.zeros([rows,tau.size])
-  for i in range(0,rows):
-    filter[i,:] = combine_bases(arr[i,:], tau, basis)
-  return filter
-
 def run_bases(bases, data):
   """Correlates a dataset with a set of bases.
    Takes a 2D array to a 3D array, """
