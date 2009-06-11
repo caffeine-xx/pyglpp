@@ -22,7 +22,7 @@ class LikelihoodModel:
     raise Exception('not implemented')
 
 class MultiNeuron(LikelihoodModel):
-  """ Multi-neuron Poisson model with cosine bases"""
+  """ Multi-neuron Poisson model with user-specified bases"""
 
   def __init__(self, delta, tau, stimulus, spikes, sparse, stim_basis, spike_basis):
     self.N, self.T = spikes.shape

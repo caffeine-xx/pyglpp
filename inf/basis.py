@@ -1,9 +1,9 @@
 import numpy as np
 import math as m
-import scipy.signal as sig
+import scipy.ndimage as nd
 
 # a single basis row
-def cos_basis(a, c):
+def cos_basis(a=7, c=1.0):
   phi = lambda n,j: j * m.pi / (2)
   dis = lambda t: a * m.log(t + c)
   bas = lambda n,j,t: (dis(t) > (phi(n,j) - m.pi) and dis(t) < (phi(n,j) + m.pi)) * ((1.0/2.0)*(1 + m.cos(dis(t) - phi(n,j))))
@@ -20,11 +20,12 @@ def run_bases(bases, data):
   num,size = bases.shape
   result = np.zeros([rows,cols,num])
   for i in range(0,num):
-    result[:,:,i] = run_filter(data,bases[i])
+    result[:,:,i] = run_filter(bases[i],data)
   return result
 
 # runs a filter row-wise on some data
-def run_filter(data, filter):
-  rows,cols = data.shape
-  corr = lambda i: sig.correlate(data[i],filter,mode='same')
-  return np.array([corr(i) for i in range(0,rows)])
+def run_filter(filt, data):
+  filt = np.atleast_2d(filt)
+  data = np.atleast_2d(data)
+  orig = -1 * m.floor(filt.size/2)
+  return nd.correlate(data, filt, mode='constant', origin=(0,orig))
