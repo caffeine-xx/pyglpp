@@ -145,9 +145,11 @@ eval val = case val of
     result <- eval pred
     case result of
       Bool False -> eval alt
-      otherwise -> eval conseq
+      Bool True -> eval conseq
+      otherwise -> throwError $ TypeMismatch "Conditional needs bools" result
   (List (Atom func : args)) -> mapM eval args >>= apply func
   _ -> throwError $ BadSpecialForm "Unrecognized special form" val
+
 
 apply :: String -> [LispVal] -> ThrowsError LispVal
 apply func args = maybe (throwError $ NotFunction "Unrecognized primitive" func)
@@ -237,7 +239,7 @@ unpackStr v = case v of
   String s -> return s
   Number s -> return $ show s
   Bool   s -> return $ show s
-unpackStr x = throwError $ TypeMismatch "string" x
+  other    -> throwError $ TypeMismatch "string" v
 
 unpackBool :: LispVal -> ThrowsError Bool
 unpackBool (Bool b) = return b
@@ -266,7 +268,7 @@ cons pair = case pair of
   [x, List xs] -> return $ List (x:xs)
   [x, DottedList xs xl] -> return $ DottedList (x:xs) xl
   [x, y] -> return $ DottedList [x] y
-cons bad = throwError $ NumArgs 2 bad
+  bad -> throwError $ NumArgs 2 pair
 
 eqv :: [LispVal] -> ThrowsError LispVal
 eqv [x, y] = case (x, y) of 
@@ -274,14 +276,31 @@ eqv [x, y] = case (x, y) of
   (Atom l1, Atom l2)     -> return $ Bool $ l1 == l2
   (String l1, String l2) -> return $ Bool $ l1 == l2
   (Number l1, Number l2) -> return $ Bool $ l1 == l2
-eqv [DottedList xs xe, DottedList ys ye] = eqv [List $ xs ++ [xe], List $ ys ++ [ye]]
-eqv [List xs, List ys] = return $ Bool $ (length xs == length ys) &&
-  (and $ map eqvPair $ zip xs ys) where 
-    eqvPair (x1, x2) = case eqv [x1, x2] of
-      Left err -> False -- should never be executed, because only NumArgs errors
-      Right (Bool val) -> val
-eqv [_,_] = return $ Bool False
+  (List _, List _)       -> listEq eqv [x, y]
+  (DottedList _ _, DottedList _ _) -> listEq eqv [x, y]
+  other                  -> return $ Bool $ False
 eqv bad = throwError $ NumArgs 2 bad
+
+equal :: [LispVal] -> ThrowsError LispVal
+equal [x, y] = case (x, y) of
+  (List _, List _)       -> listEq equal [x, y]
+  (DottedList _ _, DottedList _ _) -> listEq equal [x, y]
+  (a1, a2) -> do 
+    primEq <- liftM or $ mapM (unpackEquals a1 a2) 
+      [AnyUnpacker unpackNum, AnyUnpacker unpackStr, AnyUnpacker unpackBool]
+    eqvEq  <- eqv [a1, a2]
+    return $ Bool $ (primEq || let (Bool x) = eqvEq in x)
+equal bad = throwError $ NumArgs 2 bad
+
+listEq :: ([LispVal] -> ThrowsError LispVal) -> [LispVal] -> ThrowsError LispVal
+listEq comp [x, y] = case (x, y) of
+  (DottedList xs xe, DottedList ys ye) -> listEq comp [List $ xs ++ [xe], List $ ys ++ [ye]] 
+  (List xs, List ys) -> return $ Bool $ (length xs == length ys) &&
+    (and $ map eqvPair $ zip xs ys) where 
+      eqvPair (x1, x2) = case eqv [x1, x2] of
+        Left err -> False -- should never be executed, because only NumArgs errors
+        Right (Bool val) -> val
+  (p, q) -> return $ Bool False
 
 data Unpacker = forall a. Eq a => AnyUnpacker (LispVal -> ThrowsError a)
 
@@ -291,15 +310,6 @@ unpackEquals a1 a2 (AnyUnpacker unpacker) =
      up2 <- unpacker a2
      return $ up1 == up2
   `catchError` (const $ return False)
-
-equal :: [LispVal] -> ThrowsError LispVal
-equal [a1, a2] = do 
-  primEq <- liftM or $ mapM (unpackEquals a1 a2) 
-    [AnyUnpacker unpackNum, AnyUnpacker unpackStr, AnyUnpacker unpackBool]
-  eqvEq  <- eqv [a1, a2]
-  return $ Bool $ (primEq || let (Bool x) = eqvEq in x)
-equal bad = throwError $ NumArgs 2 bad
-
 -- errors
 --
 
