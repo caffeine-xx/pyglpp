@@ -1,6 +1,5 @@
 
 import numpy as np
-from neuro import *
 from trains import *
 from basis import *
 import likelihood_model as lm 

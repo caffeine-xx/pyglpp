@@ -32,7 +32,7 @@ class MultiNeuron(LikelihoodModel):
     self.stims  = stimulus
     self.delta  = delta
     self.tau    = tau 
-    self.sparse = [filter(lambda t: t > tau.size, sparse[i]) for i in range(0,self.N)]
+    self.sparse = sparse
     self.spike_b= spike_basis.shape[0]
     self.stim_b = stim_basis.shape[0]
     self.base_spikes = b.run_bases(spike_basis, spikes)
