@@ -48,7 +48,6 @@ class Connectivity:
     self.map  = map.map
     self.N    = map.N
     self.dist = map.dist
-    self.conn = np.zeros((self.N,self.N))
     self.conn = self.connect(*args)
 
   def connect(self,*args):
@@ -58,22 +57,22 @@ class FixedConnectivity(Connectivity):
   """ Defines a bernoulli connectivity regime """
 
   def connect(self,p):
-    conn = self.conn
-    for i,(ix,iy) in enumerate(self.map):
-      for j,(jx,jy) in enumerate(self.map):
-        conn[i,j] = (p < rd.rand())
+    conn = [
+        filter(lambda j: p < rd.rand(),range(0,self.N))
+        for i in range(0,self.N)
+      ]
     return conn
 
 class DistanceConnectivity(Connectivity):
   """ Bernoulli connects based on the inverse square of distance """
 
-  def __dist_fn(self,d):
-    return 1 - (d / (self.dist.max()))**2
+  def __dist_fn(self,i,j):
+    return 1 - (self.dist[i,j] / (self.dist.max()))**2
 
   def connect(self):
-    conn = self.conn
-    for i,(ix,iy) in enumerate(self.map):
-      for j,(jx,jy) in enumerate(self.map):
-        d = self.dist[i,j]
-        conn[i,j] = (rd.rand() < self.__dist_fn(d))
+    conn = [
+        filter(lambda j: self.__dist_fn(i,j) < rd.rand(), range(0,self.N))
+        for i in range(0,self.N)
+      ]
     return conn
+
