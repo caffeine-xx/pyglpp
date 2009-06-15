@@ -8,7 +8,6 @@ reload(c)
 
 def test_regular_neuron_map():
     nm = c.RegularMap(20,2)
-    print nm.map
     for i,(x,y) in enumerate(nm.map):
       assert (x%2==0) and (y%2 == 0)
 
