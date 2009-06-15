@@ -13,7 +13,8 @@ reload(ns)
 
 def test_nest_sim():
     nm = c.UniformMap(1000,100)
-    fc = c.FixedConnectivity(nm,0.5)
-    si = ns.NestSimulator(1, "", fc)
-    si.run(10)
+    fc = c.FixedConnectivity(nm,0.2)
+    si = ns.NestSimulator(0.1, "", fc)
+    print nm.dist
+    return si.run(1000)
 

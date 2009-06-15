@@ -8,7 +8,10 @@ class NestSimulator:
   the kernel gets reset """
 
   def __init__(self, delta, type, conn):
+    import nest
+
     nest.ResetKernel()
+    nest.SetKernelStatus({"resolution": delta, "print_time": True})
 
     # Initialize the parameters of the integrate and fire neuron
     tauSyn = 0.5
@@ -27,16 +30,15 @@ class NestSimulator:
     # Build the network
     nodes  = nest.Create("iaf_psc_alpha",conn.N) 
     
-    
-    spikes = nest.Create("spike_detector")
-    
-    nest.ConvergentConnect(range(1,conn.N),spikes,model="excitatory")
+    # Build spike detector
+    self.spikes = nest.Create("spike_detector")
+    nest.ConvergentConnect(range(1,conn.N),self.spikes)
     
     for i in range(0,conn.N):
-      nest.ConvergentConnect(conn.conn[i]+1,[i+1],model="excitatory")
+      nest.ConvergentConnect(conn.conn[i],[i+1])
 
     self.sim = nest
   
   def run(self,time):
     self.sim.Simulate(time)
-
+    return self.spikes

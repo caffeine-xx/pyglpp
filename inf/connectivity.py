@@ -58,8 +58,8 @@ class FixedConnectivity(Connectivity):
 
   def connect(self,p):
     conn = [
-        filter(lambda j: p < rd.rand(),range(0,self.N))
-        for i in range(0,self.N)
+        filter(lambda j: p < rd.rand(),range(1,self.N+1))
+        for i in range(1,self.N+1)
       ]
     return conn
 
@@ -71,8 +71,8 @@ class DistanceConnectivity(Connectivity):
 
   def connect(self):
     conn = [
-        filter(lambda j: self.__dist_fn(i,j) < rd.rand(), range(0,self.N))
-        for i in range(0,self.N)
+        filter(lambda j: self.__dist_fn(i,j) < rd.rand(), range(1,self.N+1))
+        for i in range(1,self.N+1)
       ]
     return conn
 
