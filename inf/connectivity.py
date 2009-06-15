@@ -2,16 +2,19 @@ import numpy as np
 import numpy.random as rd
 
 class NeuronMap:
+  """ List of neuron positions """
   def __init__(self, *args):
     self.map           = self.place(*args)
     self.dist          = self.__calc_dist()
-  
+    self.N             = len(self.map)
+
   def __calc_dist(self):
     N = len(self.map)
     dist = np.zeros((N,N))
     for i,(x,y) in enumerate(self.map):
       for j,(x2,y2) in enumerate(self.map):
         dist[i,j] = np.hypot(x-x2,y-y2)
+    return dist
 
   def place(self):
     raise Exception("Not implemented")
@@ -42,7 +45,10 @@ class UniformMap(NeuronMap):
 class Connectivity:
   """ Connectivity of a map """
   def __init__(self,map,*args):
-    self.map = map
+    self.map  = map.map
+    self.N    = map.N
+    self.dist = map.dist
+    self.conn = np.zeros((self.N,self.N))
     self.conn = self.connect(*args)
 
   def connect(self,*args):
@@ -52,7 +58,7 @@ class FixedConnectivity(Connectivity):
   """ Defines a bernoulli connectivity regime """
 
   def connect(self,p):
-    conn = np.zeros((self.N,self.N))
+    conn = self.conn
     for i,(ix,iy) in enumerate(self.map):
       for j,(jx,jy) in enumerate(self.map):
         conn[i,j] = (p < rd.rand())
@@ -62,11 +68,12 @@ class DistanceConnectivity(Connectivity):
   """ Bernoulli connects based on the inverse square of distance """
 
   def __dist_fn(self,d):
-    return 1 - (d / (self.map.dist.max()))**2
+    return 1 - (d / (self.dist.max()))**2
 
   def connect(self):
+    conn = self.conn
     for i,(ix,iy) in enumerate(self.map):
       for j,(jx,jy) in enumerate(self.map):
-        d = self.map.dist[i,j]
-        conn[x,y] = (rd.rand() < self.__dist_fn(d))
+        d = self.dist[i,j]
+        conn[i,j] = (rd.rand() < self.__dist_fn(d))
     return conn

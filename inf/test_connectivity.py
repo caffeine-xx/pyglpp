@@ -17,9 +17,9 @@ def test_uniform_neuron_map():
     assert len(um.map)==15
 
 def test_fixed_connectivity():
-    nm = c.UniformMap(10000,1000)
+    nm = c.UniformMap(1000,100)
     fc = c.FixedConnectivity(nm,0.5)
-    assert m.abs(fc.conn.sum()  - (0.5 * 1000**2)) < (0.1 * 1000**2)
+    assert abs(fc.conn.sum()  - (0.5 * 100**2)) < (0.1 * 100**2)
 
 def test_distance_connectivity():
     nm = c.UniformMap(1000,100)
