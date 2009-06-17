@@ -5,14 +5,15 @@ import math as m
 from memoize import Memoize
 
 class LikelihoodModel:
+  """ A probabilistic model for which we can calculate likelihood """
+  
+  def set_data(self, *args):
+    raise Exception('not implemented')
 
   def logL(self,*args):
     raise Exception('not implemented')
 
   def logL_grad(self,*args):
-    raise Exception('not implemented')
-
-  def logL_hess_p(self,*args):
     raise Exception('not implemented')
 
   def unpack(self,theta, args):
@@ -24,19 +25,22 @@ class LikelihoodModel:
 class MultiNeuron(LikelihoodModel):
   """ Multi-neuron Poisson model with user-specified bases"""
 
-  def __init__(self, delta, tau, stimulus, spikes, sparse, stim_basis, spike_basis):
-    self.N, self.T = spikes.shape
-    self.Nx = stimulus.shape[0]
-    self.ind = range(tau.size+1,self.T)
-    self.spikes = spikes
-    self.stims  = stimulus
-    self.delta  = delta
-    self.tau    = tau 
-    self.sparse = sparse
-    self.spike_b= spike_basis.shape[0]
-    self.stim_b = stim_basis.shape[0]
-    self.base_spikes = b.run_bases(spike_basis, spikes)
-    self.base_stims  = b.run_bases(stim_basis, stimulus)
+  def __init__(self, stim_basis, spike_basis):
+    self.stim_basis  = stim_basis
+    self.spike_basis = spike_basis
+
+  def set_params(self, timestep, duration, stims, spikes):
+    self.N       = len(spikes)
+    self.Nx      = stims.shape[0]
+    self.T       = duration
+    self.spikes  = spikes
+    self.stims   = stims
+    self.delta   = timestep
+    self.spike_b = self.spike_basis.shape[0]
+    self.stim_b  = self.stim_basis.shape[0]
+    self.base_spikes = b.run_bases(self.spike_basis, spikes)
+    self.base_stims  = b.run_bases(self.stim_basis, stim)
+
 
   def pack(self, K, H, Mu):
     shapes = (K.size, K.shape, H.size, H.shape, Mu.size, Mu.shape)
@@ -64,7 +68,7 @@ class MultiNeuron(LikelihoodModel):
     I = self.logI(K,H,Mu)
     t1 = 0
     for i in range(0,self.N):
-      t1 += sum([I[i,t] for t in self.sparse[i]])
+      t1 += sum([I[i,t] for t in self.spikes[i]])
     t2 = np.sum(np.sum(np.ma.exp(I)))
     return t1 - self.delta*t2
 
@@ -75,12 +79,34 @@ class MultiNeuron(LikelihoodModel):
     dM = np.zeros([self.N])
     for i in range(0,self.N):
       for j in range(0,self.Nx):
-        dK[i,j,:] = sum([self.base_stims[j,t,:] for t in self.sparse[i]])
+        dK[i,j,:] = sum([self.base_stims[j,t,:] for t in self.spikes[i]])
         dK[i,j,:] -= self.delta * np.sum(self.base_stims[j,:,:] * np.ma.exp(I[i,:]).reshape((I[i,:].size,1)),0)
       for j in range(0,self.N):
-        dH[i,j,:] = sum([self.base_spikes[j,t,:] for t in self.sparse[i]])
+        dH[i,j,:] = sum([self.base_spikes[j,t,:] for t in self.spikes[i]])
         dH[i,j,:] -= self.delta * np.sum(self.base_spikes[j,:,:] * np.ma.exp(I[i,:]).reshape((I[i,:].size,1)),0)
-      t1 = len(self.sparse[i])
-      dM[i]= len(self.sparse[i])-self.delta*np.sum(I[i,:])
+      t1 = len(self.spikes[i])
+      dM[i]= len(self.spikes[i])-self.delta*np.sum(I[i,:])
     return dK, dH, dM
 
+class MLEstimator(LikelihoodModel):
+""" Decorator for LikelihoodModels
+  Allows one to perform maximum likelihood inference on any
+  likelihood model (i.e. one that exposes logL and logL_grad,
+  and pack & unpack) """
+
+  def __init__(self, model):
+    self.model = model
+
+  def logL(self,theta, *args):
+    a = self.model.unpack(theta, args)
+    return -1*self.model.logL(*a)
+
+  def logL_grad(self,theta, *args):
+    a = self.model.unpack(theta, args)
+    theta, shape = self.model.pack(*tuple(self.model.logL_grad(*a)))
+    return -1*theta
+
+  def maximize(self,*a):
+    theta, args = self.model.pack(*a)
+    theta = opt.fmin_cg(self.logL, theta, self.logL_grad,  args=args, maxiter=1000)
+    return self.model.unpack(theta, args)
