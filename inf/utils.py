@@ -2,7 +2,6 @@ import numpy as np
 import math as m
 import scipy.ndimage as nd
 
-# a single basis row
 def cos_basis(a=7, c=1.0):
   phi = lambda n,j: j * m.pi / (2)
   dis = lambda t: a * m.log(t + c)
@@ -23,9 +22,17 @@ def run_bases(bases, data):
     result[:,:,i] = run_filter(bases[i],data)
   return result
 
-# runs a filter row-wise on some data
 def run_filter(filt, data):
   filt = np.atleast_2d(filt)
   data = np.atleast_2d(data)
   orig = -1 * m.floor(filt.size/2)
   return nd.correlate(data, filt, mode='constant', origin=(0,orig))
+
+def rand_stim(time):
+  return np.asarray(map(lambda t: rd.random(),range(0,time)))
+
+def rand_train(stim):
+  return np.asarray(map(lambda t: rd.random() < t,stim))
+
+def spike_times(train):
+  return filter(lambda t: train[t], range(train.size))
