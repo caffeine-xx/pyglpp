@@ -1,6 +1,5 @@
 import numpy as np
 import scipy.optimize as opt
-import basis as b
 import math as m
 from memoize import Memoize
 
@@ -47,8 +46,8 @@ class MultiNeuron(LikelihoodModel):
     self.sparse_to_spikes(sparse)
     self.stims   = stims
     # basis
-    self.base_spikes = b.run_bases(self.spike_basis, self.spikes)
-    self.base_stims  = b.run_bases(self.stim_basis, self.stims)
+    self.base_spikes = run_bases(self.spike_basis, self.spikes)
+    self.base_stims  = run_bases(self.stim_basis, self.stims)
 
   def pack(self, K, H, Mu):
     shapes = (K.size, K.shape, H.size, H.shape, Mu.size, Mu.shape)
@@ -108,8 +107,9 @@ def straight_basis(a):
   return np.vectorize(bas)
 
 def run_bases(bases, data):
-  """Correlates a dataset with a set of bases.
-   Takes a 2D array to a 3D array, """
+  """
+   Correlates a dataset with a set of bases.
+   Takes a 2D array to a 3D array """
   rows,cols = data.shape
   num,size = bases.shape
   result = np.zeros([rows,cols,num])
@@ -124,7 +124,7 @@ def run_filter(filt, data):
   return nd.correlate(data, filt, mode='constant', origin=(0,orig))
 
 class MLEstimator(LikelihoodModel):
-""" Decorator for LikelihoodModels
+  """ Decorator for LikelihoodModels
   Allows one to perform maximum likelihood inference on any
   likelihood model (i.e. one that exposes logL and logL_grad,
   and pack & unpack) """
