@@ -6,7 +6,7 @@ import basis as b
 
 class PoissonSimulator:
   """ Multi-neuron poisson simulator """
-  def __init__(self, delta, tau, stimulus, neurons, stim_basis, spike_basis):
+  def __init__(self, delta=0.1, stimulus=None, neurons=None, stim_basis=None, spike_basis=None):
     self.delta  = delta
     self.tau    = tau
     self.stim   = stimulus
@@ -65,6 +65,10 @@ class PoissonSimulator:
     self.K, self.H, self.Mu = K, H, Mu
     self._forward(t)
     return self.spikes
+
+  def sparse_spikes(self):
+    return [spike_times(self.spikes[i,:]) for i in xrange(self.N)]
+
 
 
 def rand_stim(time):
