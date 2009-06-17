@@ -28,19 +28,27 @@ class MultiNeuron(LikelihoodModel):
   def __init__(self, stim_basis, spike_basis):
     self.stim_basis  = stim_basis
     self.spike_basis = spike_basis
+    self.spike_b     = spike_basis.shape[0]
+    self.stim_b      = stim_basis.shape[0]
+  
+  def sparse_to_spikes(self, sparse):
+    for i,s in enumerate(sparse):
+      np.put(self.spikes[i,:],s,[1])
 
-  def set_params(self, timestep, duration, stims, spikes):
+  def set_data(self, timestep, duration, stims, sparse):
+    # dimensions
+    self.delta   = timestep
+    self.T       = duration
     self.N       = len(spikes)
     self.Nx      = stims.shape[0]
-    self.T       = duration
-    self.spikes  = spikes
+    # data
+    self.sparse  = sparse
+    self.spikes  = np.zeros(self.N,self.T)
+    self.sparse_to_spikes(sparse)
     self.stims   = stims
-    self.delta   = timestep
-    self.spike_b = self.spike_basis.shape[0]
-    self.stim_b  = self.stim_basis.shape[0]
-    self.base_spikes = b.run_bases(self.spike_basis, spikes)
-    self.base_stims  = b.run_bases(self.stim_basis, stim)
-
+    # basis
+    self.base_spikes = b.run_bases(self.spike_basis, self.spikes)
+    self.base_stims  = b.run_bases(self.stim_basis, self.stims)
 
   def pack(self, K, H, Mu):
     shapes = (K.size, K.shape, H.size, H.shape, Mu.size, Mu.shape)
@@ -68,7 +76,7 @@ class MultiNeuron(LikelihoodModel):
     I = self.logI(K,H,Mu)
     t1 = 0
     for i in range(0,self.N):
-      t1 += sum([I[i,t] for t in self.spikes[i]])
+      t1 += sum([I[i,t] for t in self.sparse[i]])
     t2 = np.sum(np.sum(np.ma.exp(I)))
     return t1 - self.delta*t2
 
@@ -79,14 +87,41 @@ class MultiNeuron(LikelihoodModel):
     dM = np.zeros([self.N])
     for i in range(0,self.N):
       for j in range(0,self.Nx):
-        dK[i,j,:] = sum([self.base_stims[j,t,:] for t in self.spikes[i]])
+        dK[i,j,:] = sum([self.base_stims[j,t,:] for t in self.sparse[i]])
         dK[i,j,:] -= self.delta * np.sum(self.base_stims[j,:,:] * np.ma.exp(I[i,:]).reshape((I[i,:].size,1)),0)
       for j in range(0,self.N):
-        dH[i,j,:] = sum([self.base_spikes[j,t,:] for t in self.spikes[i]])
+        dH[i,j,:] = sum([self.base_spikes[j,t,:] for t in self.sparse[i]])
         dH[i,j,:] -= self.delta * np.sum(self.base_spikes[j,:,:] * np.ma.exp(I[i,:]).reshape((I[i,:].size,1)),0)
-      t1 = len(self.spikes[i])
-      dM[i]= len(self.spikes[i])-self.delta*np.sum(I[i,:])
+      t1 = len(self.sparse[i])
+      dM[i]= len(self.sparse[i])-self.delta*np.sum(I[i,:])
     return dK, dH, dM
+
+
+def cos_basis(a=7, c=1.0):
+  phi = lambda n,j: j * m.pi / (2)
+  dis = lambda t: a * m.log(t + c)
+  bas = lambda n,j,t: (dis(t) > (phi(n,j) - m.pi) and dis(t) < (phi(n,j) + m.pi)) * ((1.0/2.0)*(1 + m.cos(dis(t) - phi(n,j))))
+  return np.vectorize(bas)
+
+def straight_basis(a):
+  bas = lambda n, j, t: a
+  return np.vectorize(bas)
+
+def run_bases(bases, data):
+  """Correlates a dataset with a set of bases.
+   Takes a 2D array to a 3D array, """
+  rows,cols = data.shape
+  num,size = bases.shape
+  result = np.zeros([rows,cols,num])
+  for i in range(0,num):
+    result[:,:,i] = run_filter(bases[i],data)
+  return result
+
+def run_filter(filt, data):
+  filt = np.atleast_2d(filt)
+  data = np.atleast_2d(data)
+  orig = -1 * m.floor(filt.size/2)
+  return nd.correlate(data, filt, mode='constant', origin=(0,orig))
 
 class MLEstimator(LikelihoodModel):
 """ Decorator for LikelihoodModels
