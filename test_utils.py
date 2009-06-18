@@ -1,10 +1,10 @@
 import numpy as np
 import math as m
 import matplotlib.pyplot as plt
+from inference import BasisUtils
 from scipy import *
 
-import basis as b
-reload(b)
+b = BasisUtils()
 
 def test_cos_basis():
   tau = np.arange(0.1,30.0,0.10)

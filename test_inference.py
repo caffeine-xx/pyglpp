@@ -1,40 +1,46 @@
 import numpy as np
 from scipy import *
-
 import math as m
 
-import basis as b
-import likelihood_model as lm
-import trains as tr
+from inference import *
+from stimulus import *
 
-reload(tr)
-reload(b)
-reload(lm)
+# --------------
+# bases tests
+# --------------
 
+def test_cos_basis():
+  tau = np.arange(0.1,30.0,0.10)
+  bas = cos_basis(7,1.0)
+  bas2 = cos_basis()
+  plt.hold(True)
+  for j in range(0,10):
+    plt.plot(bas(10,j,tau))
+    plt.show()
+    assert bas2(10,j,tau).all()==bas(10,j,tau).all()
 
-# basic parameters
-neurons = 2
-stimuli = 2
-delta = 0.1
-time = np.arange(0.1, 10.0, delta)
-tau = np.arange(0.1, 2.0, 0.1)
+def test_run_filter():
+  # simple multiplication
+  filter = np.array([2,0])
+  data = np.ones([2,10])
+  newdata = run_filter(filter,data)
+  assert  (2*data).all() == newdata.all()
 
-# simulation
-stim = np.zeros([stimuli,time.size])+0.5
-spikes = np.zeros([neurons,time.size])
-sparse = neurons*[[]]
+def test_run_bases():
+  filters = np.array([[1,0],[2,0],[3,0]])
+  data = np.ones([2,10])
+  newdata = run_bases(filters,data)
+  print newdata
+  valdata = np.array([data, 2*data, 3*data])
+  assert newdata.all() == valdata.all()
 
-for i in range(0,neurons):
-  spikes[i,:] = tr.rand_train(stim[0,:])
-  sparse[i] = tr.spike_times(spikes[i,:])
-
-# initialization
-basis = b.straight_basis(0.5)
-basis = np.array([basis(1,1,tau) for i in range(0,4)])
-
-mn = lm.MultiNeuron(delta,tau,stim,spikes,sparse,basis,basis)
+# --------------
+# multineuron tests
+# --------------
 
 def test_pack_unpack():
+  neurons  = 2
+  stimuli  = 2
   K = np.random.random([neurons,stimuli,4])
   H = np.random.random([neurons,neurons,4])
   Mu = np.random.random([neurons])
@@ -43,22 +49,23 @@ def test_pack_unpack():
   assert (K==oK).all() and (H==oH).all() and (Mu==oM).all()
 
 def test_multineuron():
-  # init model
-  x = np.array([
-    [0,1,0,0, 0,0,0,0],
-    [0,0,0,0, 2,0,0,0]])
-  y = np.array([
-    [0,1,0,0, 0,0,0,0],
-    [0,0,0,0, 1,0,0,0]])
   b = np.array([
     [1,1],
     [2,1]])
-  s = [[1],[4]]
-  t = np.array([0,1])
-  mn = lm.MultiNeuron(b,b)
-  mn.set_data(1,t,x,s)
+  mn = MultiNeuron(b,b)
 
-  # check bases
+  t = 1
+  d = 8
+  x = np.array([
+    [0,1,0,0, 0,0,0,0],
+    [0,0,0,0, 2,0,0,0]])
+  s = [[1],[4]]
+  mn.set_data(t,d,x,s)
+
+  #  y = np.array([
+  #    [0,1,0,0, 0,0,0,0],
+  #    [0,0,0,0, 1,0,0,0]])
+
   bx =  np.array([[[ 1.0,  1.0],
           [ 1.0,  2.0],
           [ 0.0,  0.0],
@@ -129,7 +136,11 @@ def test_multineuron():
         
 
 
-class LLStub(lm.LikelihoodModel):
+# ------------
+# maximum likelihood tests
+# ------------
+
+class LLStub(LikelihoodModel):
   def logL(self,x,n,c):
     return -1*(x**n)+c
 
@@ -153,40 +164,8 @@ def test_mlestimator():
   n = 2
   x0 = 10
 
-  est = mle.MLEstimator(lls)
+  est = MLEstimator(lls)
   (x,n,c) = est.maximize(x0,n,c)
   
   assert x<0.01
-import numpy as np
-import math as m
-import matplotlib.pyplot as plt
-from scipy import *
-
-import basis as b
-reload(b)
-
-def test_cos_basis():
-  tau = np.arange(0.1,30.0,0.10)
-  bas = b.cos_basis(7,1.0)
-  bas2 = b.cos_basis()
-  plt.hold(True)
-  for j in range(0,10):
-    plt.plot(bas(10,j,tau))
-    plt.show()
-    assert bas2(10,j,tau).all()==bas(10,j,tau).all()
-
-def test_run_filter():
-  # simple multiplication
-  filter = np.array([2,0])
-  data = np.ones([2,10])
-  newdata = b.run_filter(filter,data)
-  assert  (2*data).all() == newdata.all()
-
-def test_run_bases():
-  filters = np.array([[1,0],[2,0],[3,0]])
-  data = np.ones([2,10])
-  newdata = b.run_bases(filters,data)
-  print newdata
-  valdata = np.array([data, 2*data, 3*data])
-  assert newdata.all() == valdata.all()
 
