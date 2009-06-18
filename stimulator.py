@@ -2,7 +2,7 @@ from numpy.random import poisson
 import random as rd
 import math
 import numpy as np
-import basis as b
+from inference import BasisUtils
 
 class Stimulator:
   """ Stimulator class.  Supports both incremental and 
@@ -59,7 +59,7 @@ class RandomStim(Stimulator):
   def next(self):
     return np.random.rand(self.Nx,1)
 
-class PoissonSimulator:
+class PoissonSimulator(BasisUtils):
   """ Multi-neuron poisson simulator """
   def __init__(self, delta=0.1, stimulus=None, neurons=None, stim_basis=None, spike_basis=None):
     self.delta  = delta
@@ -73,7 +73,7 @@ class PoissonSimulator:
     self.st_bas = stim_basis
     self.sp_bas = spike_basis
     self.b_spikes= np.zeros([self.N,  stimulus.shape[1], self.sp_bas.shape[0]])
-    self.b_stims = b.run_bases(stim_basis, stimulus)
+    self.b_stims = self..run_bases(stim_basis, stimulus)
     self._rebase(0, tau.size+1)
 
   def _rebase(self, start, end):
@@ -84,7 +84,7 @@ class PoissonSimulator:
     t0 = max(0,start-self.tau.size)
     t1 = end
     spikes = self.spikes[:,t0:t1]
-    bspikes = b.run_bases(self.sp_bas, spikes)
+    bspikes = self..run_bases(self.sp_bas, spikes)
     self.b_spikes[:,t0:t1,:] = bspikes
 
   def _grow(self,t):
