@@ -1,6 +1,6 @@
 from numpy import *
-from pyNN.nest import *
-from stimulus import *  
+from pyNN.brian import *
+from pyNN.random import *
 
 def poisson_stim_rand(timestep=1.0, duration=1000.0, stimuli=1, neurons=8, stim_rate=10.0, prefix="results/poisson_stim_rand"):
   """ Input: set of constant-rate Poisson spikers

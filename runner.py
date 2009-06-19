@@ -2,6 +2,7 @@ from NeuroTools import signals
 
 from numpy import *
 from scipy import *
+from inference import MLEstimator
 
 def load_experiment(prefix):
   ''' Get spike trains and stimulus, return LikelihoodModel-compatible
@@ -22,7 +23,7 @@ def load_experiment(prefix):
   excite.extend(inhibit)
   return (1.0, t_stop, stimulus, excite)
 
-def run_experiment(prefix, model):
+def analyze_experiment(prefix, model):
   ''' Loads the results of a simulation, performs ML inference on the given model,
   and returns the resulting parameters '''
   
@@ -34,8 +35,6 @@ def run_experiment(prefix, model):
   maximized = estimator.maximize(*initial)
 
   return maximized
-  initial = model.random_args()
-  initial = model.random_args()
 
 def spike_list_to_matrix(list, t_stop=None):
   ''' Converts a spike list into a numpy matrix of width T

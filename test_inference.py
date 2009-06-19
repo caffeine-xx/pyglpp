@@ -13,10 +13,7 @@ def test_cos_basis():
   tau = np.arange(0.1,30.0,0.10)
   bas = cos_basis(7,1.0)
   bas2 = cos_basis()
-  plt.hold(True)
   for j in range(0,10):
-    plt.plot(bas(10,j,tau))
-    plt.show()
     assert bas2(10,j,tau).all()==bas(10,j,tau).all()
 
 def test_run_filter():
@@ -41,9 +38,11 @@ def test_run_bases():
 def test_pack_unpack():
   neurons  = 2
   stimuli  = 2
+  bas = atleast_2d([0.5, 0.5])
   K = np.random.random([neurons,stimuli,4])
   H = np.random.random([neurons,neurons,4])
   Mu = np.random.random([neurons])
+  mn = MultiNeuron(bas, bas)
   th,ar = mn.pack(K,H,Mu)
   oK,oH,oM = mn.unpack(th,ar)
   assert (K==oK).all() and (H==oH).all() and (Mu==oM).all()
@@ -168,4 +167,5 @@ def test_mlestimator():
   (x,n,c) = est.maximize(x0,n,c)
   
   assert x<0.01
+
 
