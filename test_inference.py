@@ -168,4 +168,8 @@ def test_mlestimator():
   
   assert x<0.01
 
+if (__name__ == "__main__"):
+  test_multineuron()
+  test_mlestimator()
+  test_pack_unpack()
 
