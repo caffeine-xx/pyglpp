@@ -48,11 +48,14 @@ class LikelihoodModel:
   def pack(self,*a):
     raise Exception('not implemented')
 
+  def random_args(self):
+    raise Exception('not implemented')
+
   def sparse_to_spikes(self, sparse):
     ''' Utility method - converts sparse representations of
         spike trains to full representation '''
     for i,s in enumerate(sparse):
-      np.put(self.spikes[i,:],s,[1])
+      self.spikes[i,s]=1
 
 class MultiNeuron(LikelihoodModel):
   """ Multi-neuron Poisson model with user-specified bases"""
@@ -67,16 +70,17 @@ class MultiNeuron(LikelihoodModel):
     # dimensions
     self.delta   = timestep
     self.T       = duration
-    self.N       = len(spikes)
+    self.N       = len(sparse)
     self.Nx      = stims.shape[0]
     # data
     self.sparse  = sparse
-    self.spikes  = np.zeros(self.N,self.T)
+    self.spikes  = np.zeros((self.N,self.T))
     self.stims   = stims
     self.sparse_to_spikes(sparse)
     # basis
     self.base_spikes = run_bases(self.spike_basis, self.spikes)
     self.base_stims  = run_bases(self.stim_basis, self.stims)
+  
 
   def pack(self, K, H, Mu):
     shapes = (K.size, K.shape, H.size, H.shape, Mu.size, Mu.shape)
@@ -89,6 +93,12 @@ class MultiNeuron(LikelihoodModel):
     H = np.ndarray.reshape(theta[Ksize:Ksize+Hsize], Hshape)
     Mu= np.ndarray.reshape(theta[(Ksize+Hsize):Ksize+Hsize+Musize], Mushape)
     return K, H, Mu
+  
+  def random_args(self):
+    Ksize = (self.N, self.Nx, self.stim_b)
+    Hsize = (self.N, self.N, self.spike_b)
+    Msize = (self.N)
+    return (np.random.random(Ksize), np.random.random(Hsize), np.random.random(Msize))
 
   def logI(self, K, H, Mu):
     I = np.zeros([self.N,self.T])
