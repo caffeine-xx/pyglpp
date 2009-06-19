@@ -104,9 +104,9 @@ class MultiNeuron(LikelihoodModel):
     I = np.zeros([self.N,self.T])
     for i in range(0,self.N):
       for j in range(0,self.Nx):
-        I[i,:] += sum([self.base_stims[j,:,l] * K[i,j,l] for l in range(0,self.stim_b)])
+        I[i,:] += sum([self.base_stims[j,:,l] * K[i,j,l] for l in xrange(self.stim_b)])
       for j in range(0,self.N):
-        I[i,:] += sum([self.base_spikes[j,:,l] * H[i,j,l] for l in range(0,self.spike_b)])
+        I[i,:] += sum([self.base_spikes[j,:,l] * H[i,j,l] for l in xrange(self.spike_b)])
       I[i,:] += Mu[i]
     return I
 
@@ -120,16 +120,17 @@ class MultiNeuron(LikelihoodModel):
 
   def logL_grad(self, K, H, Mu):
     I = self.logI(K,H,Mu)
+    expI = np.ma.exp(I)
     dK = np.zeros([self.N, self.Nx, self.stim_b])
     dH = np.zeros([self.N, self.N, self.spike_b])
     dM = np.zeros([self.N])
     for i in range(0,self.N):
       for j in range(0,self.Nx):
-        dK[i,j,:] = sum([self.base_stims[j,t,:] for t in self.sparse[i]])
-        dK[i,j,:] -= self.delta * np.sum(self.base_stims[j,:,:] * np.ma.exp(I[i,:]).reshape((I[i,:].size,1)),0)
+        dK[i,j,:] = np.sum(self.base_stims[j,self.sparse[i],:],0)
+        dK[i,j,:] -= self.delta * np.sum(self.base_stims[j,:,:] * expI[i,:].reshape((I[i,:].size,1)),0)
       for j in range(0,self.N):
-        dH[i,j,:] = sum([self.base_spikes[j,t,:] for t in self.sparse[i]])
-        dH[i,j,:] -= self.delta * np.sum(self.base_spikes[j,:,:] * np.ma.exp(I[i,:]).reshape((I[i,:].size,1)),0)
+        dH[i,j,:] = np.sum(self.base_spikes[j,self.sparse[i],:],0)
+        dH[i,j,:] -= self.delta * np.sum(self.base_spikes[j,:,:] * expI[i,:].reshape((I[i,:].size,1)),0)
       t1 = len(self.sparse[i])
       dM[i]= len(self.sparse[i])-self.delta*np.sum(I[i,:])
     return dK, dH, dM
@@ -154,5 +155,5 @@ class MLEstimator(LikelihoodModel):
 
   def maximize(self,*a):
     theta, args = self.model.pack(*a)
-    theta = opt.fmin_cg(self.logL, theta, self.logL_grad,  args=args, maxiter=1000)
+    theta = opt.fmin_cg(self.logL, theta, self.logL_grad,  args=args, maxiter=10000)
     return self.model.unpack(theta, args)
