@@ -53,4 +53,5 @@ def single_izhikevich_trial(a=0.2/ms,b=0.2/ms,time=100*ms,prefix='results/single
   neuron.clock.reinit()
   run(time)
 
-
+if(__name__=="__main__"):
+  single_izhikevich_trial()
