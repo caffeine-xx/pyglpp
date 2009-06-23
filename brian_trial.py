@@ -1,10 +1,10 @@
 from brian import *
 from brian.library.IF import *
 
-class NeuroToolsSpikeMonitor(FileSpikeMonitor):
+class NeuroToolsSpikeMonitor(SpikeMonitor):
   ''' Spike monitor that outputs a NeuroTools-compatible format '''
   def __init__(self,source,filename,record=False,delay=0):
-      super(FileSpikeMonitor,self).__init__(source,record,delay)
+      super(NeuroToolsSpikeMonitor,self).__init__(source,record,delay)
       self.filename = filename
       self.f = open(filename,'w')
       self.write_header()
@@ -20,9 +20,10 @@ class NeuroToolsSpikeMonitor(FileSpikeMonitor):
       self.f.write(str(float(self.source.clock.t*1000))+"\t"+str(i)+"\n")
   
   def write_header(self):
-    header =  "# dt = %s\n" + str(float(self.source.clock.dt))
+    header =  "# dt = %s\n" % str(float(self.source.clock.dt*1000))
     header += "# first_id = 0\n"
-    header += "# last_id = %i\n" % len(self.source)
+    header += "# last_id = %i\n" % (len(self.source)-1)
+    header += "# dimensions = [1]\n"
     self.f.write(header)
 
 def single_izhikevich_trial(a=0.2/ms,b=0.2/ms,time=100*ms,prefix='results/single_izhikevich_trial'):
@@ -44,8 +45,8 @@ def single_izhikevich_trial(a=0.2/ms,b=0.2/ms,time=100*ms,prefix='results/single
   connection[0,:] = 40*mvolt
   
   # Spike recording
-  in_file  = "%s_in.dat"  % (prefix)
-  out_file = "%s_out.dat" % (prefix)
+  in_file  = "%s_S.ras"  % (prefix)
+  out_file = "%s_N.ras" % (prefix)
   
   in_monitor  = NeuroToolsSpikeMonitor(stimulus,in_file,record=True)
   out_monitor = NeuroToolsSpikeMonitor(neuron,out_file,record=True)
