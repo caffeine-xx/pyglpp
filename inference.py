@@ -4,11 +4,15 @@ import scipy.ndimage as nd
 import scipy.optimize as opt
 from memoize import Memoize
 
-def cos_basis(a=7, c=1.0):
+def cos_basis(n=4, t=100, a=7, c=1.0):
   phi = lambda n,j: j * m.pi / (2)
   dis = lambda t: a * m.log(t + c)
   bas = lambda n,j,t: (dis(t) > (phi(n,j) - m.pi) and dis(t) < (phi(n,j) + m.pi)) * ((1.0/2.0)*(1 + m.cos(dis(t) - phi(n,j))))
-  return np.vectorize(bas)
+  bas = np.vectorize(bas)
+  res = np.zeros((n,t))
+  for j in xrange(n):
+    res[j,:] = bas(n,j,np.arange(0.0, 1.0, 1.0/t))
+  return res
 
 def straight_basis(a):
   bas = lambda n, j, t: a
@@ -27,8 +31,8 @@ def run_bases(bases, data):
 def run_filter(filt, data):
   filt = np.atleast_2d(filt)
   data = np.atleast_2d(data)
-  orig = -1 * m.floor(filt.size/2)
-  return nd.correlate(data, filt, mode='constant', origin=(0,orig))
+  orig = 1 * m.ceil(filt.size/2)
+  return nd.convolve(data, filt, mode='constant', origin=(0,orig))
 
 class LikelihoodModel:
   """ A probabilistic model for which we can calculate likelihood """
@@ -49,6 +53,9 @@ class LikelihoodModel:
     raise Exception('not implemented')
 
   def random_args(self):
+    raise Exception('not implemented')
+
+  def zero_args(self):
     raise Exception('not implemented')
 
   def sparse_to_spikes(self, sparse):
@@ -100,6 +107,12 @@ class MultiNeuron(LikelihoodModel):
     Msize = (self.N)
     return (np.random.random(Ksize), np.random.random(Hsize), np.random.random(Msize))
 
+  def zero_args(self):
+    Ksize = (self.N, self.Nx, self.stim_b)
+    Hsize = (self.N, self.N, self.spike_b)
+    Msize = (self.N)
+    return (np.zeros(Ksize), np.zeros(Hsize), np.zeros(Msize))
+
   def logI(self, K, H, Mu):
     I = np.zeros([self.N,self.T])
     for i in range(0,self.N):
@@ -131,8 +144,7 @@ class MultiNeuron(LikelihoodModel):
       for j in range(0,self.N):
         dH[i,j,:] = np.sum(self.base_spikes[j,self.sparse[i],:],0)
         dH[i,j,:] -= self.delta * np.sum(self.base_spikes[j,:,:] * expI[i,:].reshape((I[i,:].size,1)),0)
-      t1 = len(self.sparse[i])
-      dM[i]= len(self.sparse[i])-self.delta*np.sum(I[i,:])
+      dM[i]= len(self.sparse[i])-self.delta*np.sum(expI[i,:])
     return dK, dH, dM
 
 class MLEstimator(LikelihoodModel):
@@ -155,5 +167,8 @@ class MLEstimator(LikelihoodModel):
 
   def maximize(self,*a):
     theta, args = self.model.pack(*a)
-    theta = opt.fmin_cg(self.logL, theta, self.logL_grad,  args=args, maxiter=10000)
+    theta = opt.fmin_cg(self.logL, theta, self.logL_grad,  args=args, maxiter=10000, gtol=1.0e-08)
     return self.model.unpack(theta, args)
+
+def callback(a):
+  print a

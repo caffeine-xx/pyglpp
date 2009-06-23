@@ -17,13 +17,13 @@ class NeuroToolsSpikeMonitor(FileSpikeMonitor):
   def propagate(self,spikes):
     super(NeuroToolsSpikeMonitor,self).propagate(spikes)
     for i in spikes:
-      self.write(str(float(self.source.clock.t*1000))+"\t"+str(i)+"\n")
+      self.f.write(str(float(self.source.clock.t*1000))+"\t"+str(i)+"\n")
   
   def write_header(self):
     header =  "# dt = %s\n" + str(float(self.source.clock.dt))
     header += "# first_id = 0\n"
-    header += "# last_id = %i\n" % str(int(self.source.N))
-    self.write(header)
+    header += "# last_id = %i\n" % len(self.source)
+    self.f.write(header)
 
 def single_izhikevich_trial(a=0.2/ms,b=0.2/ms,time=100*ms,prefix='results/single_izhikevich_trial'):
   ''' Runs a 1000ms trial of an izhikevich neuron with a single
