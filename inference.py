@@ -31,7 +31,7 @@ def run_bases(bases, data):
 def run_filter(filt, data):
   filt = np.atleast_2d(filt)
   data = np.atleast_2d(data)
-  orig = 1 * m.ceil(filt.size/2)
+  orig = int(m.floor(filt.size/2))-1
   return nd.convolve(data, filt, mode='constant', origin=(0,orig))
 
 class LikelihoodModel:
