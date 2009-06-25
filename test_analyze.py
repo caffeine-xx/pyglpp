@@ -1,7 +1,7 @@
 from numpy import *
 from inference import *
 
-import runner as r
+import analyze as r
 reload(r)
 
 def test_analyze():

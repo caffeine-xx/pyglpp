@@ -26,7 +26,7 @@ class NeuroToolsSpikeMonitor(SpikeMonitor):
     header += "# dimensions = [1]\n"
     self.f.write(header)
 
-def single_izhikevich_trial(a=0.2/ms,b=0.2/ms,time=100*ms,prefix='results/single_izhikevich_trial'):
+def single_izhikevich_trial(a=0.2/ms,b=0.2/ms,rate=40.0*Hz,deviation=20.0*Hz,time=10000*ms,prefix='results/single_izhikevich_trial'):
   ''' Runs a 1000ms trial of an izhikevich neuron with a single
       randomly rate-varying Poisson input, centered at 40Hz.
       Outputs results of stimulus and neuron firing to:
@@ -39,11 +39,11 @@ def single_izhikevich_trial(a=0.2/ms,b=0.2/ms,time=100*ms,prefix='results/single
   neuron = NeuronGroup(1,model=model, threshold=-30.0*mV, reset=reset)
     
   # Poisson stimulus
-  rates           = lambda t: max(0,normal(40.0*Hz, 20.0*Hz))
+  rates           = lambda t: max(0,normal(rate, deviation))
   stimulus        = PoissonGroup(1,rates=rates)
   connection      = Connection(stimulus, neuron)
-  connection[0,:] = 40*mvolt
-  
+  connection[0,0] = 40*mvolt
+
   # Spike recording
   in_file  = "%s_S.ras"  % (prefix)
   out_file = "%s_N.ras" % (prefix)

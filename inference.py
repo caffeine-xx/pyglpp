@@ -29,10 +29,9 @@ def run_bases(bases, data):
   return result
 
 def run_filter(filt, data):
-  filt = np.atleast_2d(filt)
-  data = np.atleast_2d(data)
-  orig = int(m.floor(filt.size/2))-1
-  return nd.convolve(data, filt, mode='constant', origin=(0,orig))
+  orig = -1*int(np.floor(filt.size/2))
+  print orig, filt.size
+  return nd.convolve1d(data, filt, mode='constant', cval=0.0, origin=orig)
 
 class LikelihoodModel:
   """ A probabilistic model for which we can calculate likelihood """
@@ -126,8 +125,8 @@ class MultiNeuron(LikelihoodModel):
   def logL(self, K, H, Mu):
     I = self.logI(K,H,Mu)
     t1 = 0
-    for i in range(0,self.N):
-      t1 += sum([I[i,t] for t in self.sparse[i]])
+    for i in xrange(self.N):
+      t1 += np.sum(I[i,self.sparse[i]])
     t2 = np.sum(np.sum(np.ma.exp(I)))
     return t1 - self.delta*t2
 
@@ -137,11 +136,11 @@ class MultiNeuron(LikelihoodModel):
     dK = np.zeros([self.N, self.Nx, self.stim_b])
     dH = np.zeros([self.N, self.N, self.spike_b])
     dM = np.zeros([self.N])
-    for i in range(0,self.N):
-      for j in range(0,self.Nx):
+    for i in xrange(self.N):
+      for j in xrange(self.Nx):
         dK[i,j,:] = np.sum(self.base_stims[j,self.sparse[i],:],0)
         dK[i,j,:] -= self.delta * np.sum(self.base_stims[j,:,:] * expI[i,:].reshape((I[i,:].size,1)),0)
-      for j in range(0,self.N):
+      for j in xrange(self.N):
         dH[i,j,:] = np.sum(self.base_spikes[j,self.sparse[i],:],0)
         dH[i,j,:] -= self.delta * np.sum(self.base_spikes[j,:,:] * expI[i,:].reshape((I[i,:].size,1)),0)
       dM[i]= len(self.sparse[i])-self.delta*np.sum(expI[i,:])
@@ -170,5 +169,3 @@ class MLEstimator(LikelihoodModel):
     theta = opt.fmin_cg(self.logL, theta, self.logL_grad,  args=args, maxiter=10000, gtol=1.0e-08)
     return self.model.unpack(theta, args)
 
-def callback(a):
-  print a
