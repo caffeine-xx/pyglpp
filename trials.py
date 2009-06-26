@@ -2,7 +2,7 @@ from brian import *
 from brian.library.IF import *
 
 class NeuroToolsSpikeMonitor(SpikeMonitor):
-  ''' Spike monitor that outputs a NeuroTools-compatible format '''
+  ''' Spike monitor for Brian that outputs a NeuroTools-compatible format '''
   def __init__(self,source,filename,record=False,delay=0):
       super(NeuroToolsSpikeMonitor,self).__init__(source,record,delay)
       self.filename = filename
@@ -20,6 +20,8 @@ class NeuroToolsSpikeMonitor(SpikeMonitor):
       self.f.write(str(float(self.source.clock.t*1000))+"\t"+str(i)+"\n")
   
   def write_header(self):
+    ''' The whole point of this class.  Stores dt, first_id, last_id,
+        and number of dimensions into the header of a raster. '''
     header =  "# dt = %s\n" % str(float(self.source.clock.dt*1000))
     header += "# first_id = 0\n"
     header += "# last_id = %i\n" % (len(self.source)-1)
@@ -27,7 +29,7 @@ class NeuroToolsSpikeMonitor(SpikeMonitor):
     self.f.write(header)
 
 def single_izhikevich_trial(a=0.2/ms,b=0.2/ms,rate=40.0*Hz,deviation=20.0*Hz,time=10000*ms,prefix='results/single_izhikevich_trial'):
-  ''' Runs a 1000ms trial of an izhikevich neuron with a single
+  ''' Runs a trial of an izhikevich neuron with a single
       randomly rate-varying Poisson input, centered at 40Hz.
       Outputs results of stimulus and neuron firing to:
         prefix/N_in.dat
