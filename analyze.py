@@ -92,7 +92,7 @@ def spike_train_to_matrix(train, t_stop=None, dt=1.0):
 
 def spike_train_to_indices(train,dt=1.0):
   ''' Casts a train of floating-point spike times into an array
-  of integers '''
+  of integers indexing time bins '''
   return array(array(train.spike_times)/dt, dtype=int32)
 
 def spike_list_to_sparse(list,dt=1.0):
