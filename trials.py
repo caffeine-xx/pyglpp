@@ -80,7 +80,7 @@ def random_network_params(id=0):
   
   return params
 
-def random_network_trial(a=0.2/ms,b=0.2/ms,rates=normal_rate_generator,S=20,
+def random_network_trial(a=0.2/ms,b=0.2/ms,rates=None,S=20,
                          N=50, I=20, stimW=None, neurW=None,
                          time=1000*ms, prefix='results/random_network_trial'):
   ''' Izhikevich neurons randomly inter-connected, and randomly connected
@@ -93,6 +93,8 @@ def random_network_trial(a=0.2/ms,b=0.2/ms,rates=normal_rate_generator,S=20,
     stimW = rand(S,N)*10.0*mvolt * (rand(S,N) < 0.3)
   if neurW==None:
     neurW = rand(N,N)*10.0*mvolt * d2_connector(N,range(I))
+  if rates==None:
+    rates = normal_rate_generator
   # Models 
   model = Izhikevich(a,b)
   reset = AdaptiveReset(Vr=-75*mV, b=0.2/ms)
