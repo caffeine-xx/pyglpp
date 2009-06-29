@@ -1,8 +1,10 @@
+from utils import *
 from numpy import *
 from brian import *
 from brian.library.IF import *
 import cPickle
 
+@print_timing
 def run_random_network_trial(prefix,id):
   ''' Runs a trial (a simulation) from trials.py
       Generates parameters from prefix_params, runs prefix_trial,
@@ -70,9 +72,9 @@ def random_network_params(prefix="results/random_network_0",id=0):
   trials without fear of overlap - unique IDs mean unique trials. 
     The second argument is the total number of trials.  This allows
   us to scale parameters correctly over the trial space. '''
-  S = 20
-  N = 50
-  I = 10
+  S = 1
+  N = 2+id
+  I = 2
   stimW = rand(S,N) * 10.0*mV
   neurW = rand(N,N) * 10.0*mV * d2_connector(N,range(I),1.2)
   params = {
@@ -84,7 +86,7 @@ def random_network_params(prefix="results/random_network_0",id=0):
     'I': I,
     'stimW': stimW,
     'neurW': neurW,
-    'time': 1000*ms,
+    'time': 500*ms,
     'prefix': prefix
   }
   return params
@@ -154,5 +156,10 @@ def set_connection_voltage(conn, weights):
 if(__name__=="__main__"):
     prefix = sys.argv[1]
     id = int(sys.argv[2])
-    print "=== Running trial [%s, %i]" % (prefix,id)
-    run_random_network_trial(prefix,id)
+    end_id = id+1
+    if len(sys.argv) > 3:
+      end_id = int(sys.argv[3])+1
+    for i in xrange(id, end_id):
+      id = i
+      print "=== Running trial [%s, %i]" % (prefix,id)
+      run_random_network_trial(prefix,id)
