@@ -6,7 +6,9 @@ from numpy import *
 from scipy import *
 from scipy import io
 from inference import *
+from utils import *
 
+@print_timing
 def run_analysis(prefix, id):
   ''' Analyzes a particular trial and saves the result in
       filters in prefix_id_R.mat (MATLAB-compatible)
@@ -27,7 +29,7 @@ def analyze_experiment(model,experiment):
   (timestep, duration, stim, spike) = experiment
   model.set_data(timestep, duration, stim, spike)
   
-  initial   = model.zero_args()
+  initial   = model.random_args()
   estimator = MLEstimator(model)
   maximized = estimator.maximize(*initial)
   
@@ -128,5 +130,10 @@ if(__name__=="__main__"):
   import sys
   prefix = sys.argv[1]
   id = int(sys.argv[2])
-  print "=== Running analysis [%s,%i]" % (prefix,id)
-  run_analysis(prefix,id)
+  end_id = id+1
+  if len(sys.argv)>3:
+    end_id = int(sys.argv[3])+1
+  for i in xrange(id,end_id):
+    id = i
+    print "=== Running analysis [%s,%i]" % (prefix,id)
+    run_analysis(prefix,id)
