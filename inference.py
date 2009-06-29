@@ -9,7 +9,7 @@ def cos_basis(n=4, t=100, a=7, c=1.0, to=2.0):
   dis = lambda t: a * m.log(t + c)
   bas = lambda n,j,t: (dis(t) > (phi(n,j) - m.pi) and dis(t) < (phi(n,j) + m.pi)) * ((1.0/2.0)*(1 + m.cos(dis(t) - phi(n,j))))
   bas = np.vectorize(bas)
-  res = np.zeros((n,t))
+  res = np.zeros((n,t),dtype='float64')
   for j in xrange(n):
     res[j,:] = bas(n,j,np.arange(0.0, to, to/t))
   return res
@@ -79,7 +79,7 @@ class MultiNeuron(LikelihoodModel):
     self.Nx      = stims.shape[0]
     # data
     self.sparse  = sparse
-    self.spikes  = np.zeros((self.N,self.T))
+    self.spikes  = np.zeros((self.N,self.T),dtype='float64')
     self.stims   = stims
     self.sparse_to_spikes(sparse)
     # basis
@@ -170,5 +170,5 @@ class MLEstimator(LikelihoodModel):
 
   def maximize(self,*a):
     theta, args = self.model.pack(*a)
-    theta = opt.fmin_cg(self.logL, theta, self.logL_grad,  args=args, maxiter=1000, gtol=1.0e-05)
+    theta = opt.fmin_cg(self.logL, theta, self.logL_grad,  args=args, maxiter=1000, gtol=1.0e-03)
     return self.model.unpack(theta, args)
