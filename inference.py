@@ -111,18 +111,14 @@ class MultiNeuron(LikelihoodModel):
     return (np.zeros(Ksize), np.zeros(Hsize), np.zeros(Msize))
 
   def logI(self, K, H, Mu):
-    I = np.zeros([self.N,self.T])
+    I = np.zeros([self.N,self.T],dtype='float64')
     for i in xrange(self.N):
       for j in xrange(self.Nx):
-        filt = K[i,j,:].reshape((self.stim_b,1))
-        data = self.base_stims[j,:,:].reshape((self.T,self.stim_b))
-        res  = np.dot(data, filt).T
-        I[i,:] += res[0,:]
+        res, s  = np.average(self.base_stims[j,:,:],axis=1,weights=K[i,j,:],returned=True)
+        I[i,:] += res*s
       for j in xrange(self.N):
-        filt = H[i,j,:].reshape((self.spike_b,1))
-        data = self.base_spikes[j,:,:].reshape((self.T,self.spike_b))
-        res  = np.dot(data, filt).T
-        I[i,:] += res[0,:]
+        res, s  = np.average(self.base_spikes[j,:,:],axis=1,weights=H[i,j,:],returned=True)
+        I[i,:] += res*s
       I[i,:] += Mu[i]
     return I
   
@@ -137,9 +133,9 @@ class MultiNeuron(LikelihoodModel):
   def logL_grad(self, K, H, Mu):
     I = self.logI(K,H,Mu)
     expI = np.ma.exp(I)
-    dK = np.zeros([self.N, self.Nx, self.stim_b])
-    dH = np.zeros([self.N, self.N, self.spike_b])
-    dM = np.zeros([self.N])
+    dK = np.zeros([self.N, self.Nx, self.stim_b],dtype='float64')
+    dH = np.zeros([self.N, self.N, self.spike_b],dtype='float64')
+    dM = np.zeros([self.N],dtype='float64')
     for i in xrange(self.N):
       for j in xrange(self.Nx):
         dK[i,j,:] = np.sum(self.base_stims[j,self.sparse[i],:],0)
@@ -161,12 +157,12 @@ class MLEstimator(LikelihoodModel):
 
   def logL(self,theta, *args):
     a = self.model.unpack(theta, args)
-    return -1*self.model.logL(*a)
+    return -1.0*self.model.logL(*a)
 
   def logL_grad(self,theta, *args):
     a = self.model.unpack(theta, args)
     theta, shape = self.model.pack(*tuple(self.model.logL_grad(*a)))
-    return -1*theta
+    return -1.0*theta
 
   def maximize(self,*a):
     theta, args = self.model.pack(*a)
