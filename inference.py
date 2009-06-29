@@ -114,12 +114,19 @@ class MultiNeuron(LikelihoodModel):
     I = np.zeros([self.N,self.T])
     for i in range(0,self.N):
       for j in range(0,self.Nx):
-        I[i,:] += sum([self.base_stims[j,:,l] * K[i,j,l] for l in xrange(self.stim_b)])
+        filt = K[i,j,:].reshape((self.stim_b,1))
+        data = self.base_stims[j,:,:].reshape((self.T,self.stim_b))
+        res  = np.dot(data, filt)
+        I[i,:] += res[1,:]
       for j in range(0,self.N):
-        I[i,:] += sum([self.base_spikes[j,:,l] * H[i,j,l] for l in xrange(self.spike_b)])
+        # I[i,:] += sum([self.base_spikes[j,:,l] * H[i,j,l] for l in xrange(self.spike_b)])
+        filt = H[i,j,:].reshape((self.spike_b,1))
+        data = self.base_stims[j,:,:].reshape((self.T,self.spike_b))
+        res  = np.dot(data, filt)
+        I[i,:] += res[1,:]
       I[i,:] += Mu[i]
     return I
-
+  
   def logL(self, K, H, Mu):
     I = self.logI(K,H,Mu)
     t1 = 0
