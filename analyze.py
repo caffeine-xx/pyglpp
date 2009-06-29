@@ -6,9 +6,7 @@ from numpy import *
 from scipy import *
 from scipy import io
 from inference import *
-from utils import *
 
-@print_timing
 def run_analysis(prefix, id):
   ''' Analyzes a particular trial and saves the result in
       filters in prefix_id_R.mat (MATLAB-compatible)
@@ -19,8 +17,7 @@ def run_analysis(prefix, id):
   experiment = load_brian_experiment(params['prefix'])
   model      = standard_model()
   result     = analyze_experiment(model, experiment)
-  save_parameters(prefix+"_R.mat", result)
-  io.savemat(prefix+"_R.mat",{'stim_bas':model.stim_basis, 'spike_bas':model.spike_basis})
+  save_parameters(prefix+"_R.mat", result, model)
 
 def analyze_experiment(model,experiment):
   ''' Performs ML inference on the given model,
@@ -88,9 +85,13 @@ def param_to_dict(parameters):
 def param_from_dict(p):
   return (p['K'],p['H'],p['Mu'])
 
-def save_parameters(filename, parameters):
+def save_parameters(filename, parameters,model=None):
   ''' Saves a set of poisson parameters to a file '''
-  io.savemat(filename,param_to_dict(parameters))
+  params = param_to_dict(parameters)
+  if model != None:
+    params['Xb'] = model.stim_basis
+    params['Yb'] = model.spike_basis
+  io.savemat(filename,params)
 
 def load_parameters(filename):
   ''' Loads a set of poisson parmaeters from a file '''
