@@ -170,5 +170,5 @@ class MLEstimator(LikelihoodModel):
 
   def maximize(self,*a):
     theta, args = self.model.pack(*a)
-    theta = opt.fmin_cg(self.logL, theta, self.logL_grad,  args=args, maxiter=100, gtol=1.0e-06)
+    theta = opt.fmin_cg(self.logL, theta, self.logL_grad,  args=args, maxiter=1000, gtol=1.0e-05)
     return self.model.unpack(theta, args)
