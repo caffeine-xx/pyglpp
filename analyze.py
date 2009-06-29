@@ -1,18 +1,32 @@
+import cPickle
+
 from NeuroTools import signals
 
 from numpy import *
 from scipy import *
 from scipy import io
-from inference import MLEstimator
+from inference import *
+
+def run_analysis(prefix, id):
+  ''' Analyzes a particular trial and saves the result in
+      filters in prefix_id_R.mat (MATLAB-compatible)
+      Bases are currently hardcoded i, need to find neater
+      solution. '''
+  prefix = "results/%s_%i" % (prefix,id)
+  params = cPickle.load(file(prefix+"_P.pickle", 'r'))
+  experiment = load_brian_experiment(params['prefix'])
+  model      = standard_model()
+  result     = analyze_experiment(model, experiment)
+  save_parameters(prefix+"_R.mat", result)
 
 def analyze_experiment(model,experiment):
-  ''' Loads the results of a simulation, performs ML inference on the given model,
+  ''' Performs ML inference on the given model,
   and returns the resulting parameters '''
   
   (timestep, duration, stim, spike) = experiment
   model.set_data(timestep, duration, stim, spike)
   
-  initial   = model.random_args()
+  initial   = model.zero_args()
   estimator = MLEstimator(model)
   maximized = estimator.maximize(*initial)
   
@@ -22,7 +36,7 @@ def load_brian_experiment(prefix):
   ''' Get spike trains from a Brian experiment, which only has two files 
       Converts all times to whole integers.  Total time becomes max_time
       divided by dt.'''
-
+    
   # load preliminaries
   file = signals.StandardTextFile("%s_S.ras" % prefix)
   file._StandardTextFile__read_metadata()
@@ -32,7 +46,7 @@ def load_brian_experiment(prefix):
   stim = signals.load_spikelist("%s_S.ras" % prefix)
   neur = signals.load_spikelist("%s_N.ras" % prefix)
   t_stop = int(max(stim.t_stop, neur.t_stop)/dt) + 10
-
+  
   # convert
   stim = spike_list_to_matrix(stim, t_stop, dt)
   neur = spike_list_to_sparse(neur, dt)
@@ -58,6 +72,12 @@ def load_experiment(prefix):
   # combine spike trains
   excite.extend(inhibit)
   return (1.0, t_stop, stimulus, excite)
+
+def standard_model():
+  stim_bas   = cos_basis(n=4,t=100,a=2.5,to=10.0)
+  spike_bas  = cos_basis(n=10,t=100,a=7,to=10.0)
+  model      = MultiNeuron(stim_bas, spike_bas)
+  return model
 
 def param_to_dict(parameters):
   return dict(zip(('K','H','Mu'),parameters))
@@ -102,3 +122,10 @@ def spike_list_to_sparse(list,dt=1.0):
   for i,v in enumerate(list.spiketrains):
     trains.append(spike_train_to_indices(list.spiketrains[v],dt=1.0).tolist())
   return trains
+
+if(__name__=="__main__"):
+  import sys
+  prefix = sys.argv[1]
+  id = int(sys.argv[2])
+  print "=== Running analysis [%s,%i]" % (prefix,id)
+  run_analysis(prefix,id)

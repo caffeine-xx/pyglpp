@@ -1,6 +1,16 @@
 from numpy import *
 from brian import *
 from brian.library.IF import *
+import cPickle
+
+def run_random_network_trial(prefix,id):
+  ''' Runs a trial (a simulation) from trials.py
+      Generates parameters from prefix_params, runs prefix_trial,
+      and saves the relevant info in results/prefix_id_P.dat '''
+  prefix = "results/%s_%i" % (prefix,id)
+  params = random_network_params(prefix,id)
+  random_network_trial(**params)
+  cPickle.dump(params, file(prefix+"_P.pickle", 'w'), 2)
 
 class NeuroToolsSpikeMonitor(SpikeMonitor):
   ''' Spike monitor for Brian that outputs a NeuroTools-compatible format '''
@@ -54,7 +64,7 @@ def single_izhikevich_trial(a=0.2/ms,b=0.2/ms,rate=40.0*Hz,deviation=20.0*Hz,tim
   run(time)
 
 
-def random_network_params(id=0):
+def random_network_params(prefix="results/random_network_0",id=0):
   ''' For a given id, generates a unique set of parameters for
   a random network trial.  This allows multiple parallel runs of
   trials without fear of overlap - unique IDs mean unique trials. 
@@ -68,16 +78,15 @@ def random_network_params(id=0):
   params = {
     'a':0.2 / ms,
     'b':0.2 / ms,
-    'rates': lambda t: normal_rate_generator(t, 60.0*Hz, 20.0*Hz),
+    'rates': "lambda t: normal_rate_generator(t, 60.0*Hz, 20.0*Hz)",
     'S': S,
     'N': N,
     'I': I,
     'stimW': stimW,
     'neurW': neurW,
-    'time': 10000*ms,
-    'prefix': 'results/random_network_trial_%i' % id
+    'time': 1000*ms,
+    'prefix': prefix
   }
-  
   return params
 
 def random_network_trial(a=0.2/ms,b=0.2/ms,rates=None,S=20,
@@ -95,6 +104,9 @@ def random_network_trial(a=0.2/ms,b=0.2/ms,rates=None,S=20,
     neurW = rand(N,N)*10.0*mvolt * d2_connector(N,range(I))
   if rates==None:
     rates = normal_rate_generator
+  else:
+    rates = eval(rates)
+
   # Models 
   model = Izhikevich(a,b)
   reset = AdaptiveReset(Vr=-75*mV, b=0.2/ms)
@@ -140,4 +152,7 @@ def set_connection_voltage(conn, weights):
   return conn
 
 if(__name__=="__main__"):
-  single_izhikevich_trial()
+    prefix = sys.argv[1]
+    id = int(sys.argv[2])
+    print "=== Running trial [%s, %i]" % (prefix,id)
+    run_random_network_trial(prefix,id)

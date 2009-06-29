@@ -4,14 +4,14 @@ import scipy.ndimage as nd
 import scipy.optimize as opt
 from memoize import Memoize
 
-def cos_basis(n=4, t=100, a=7, c=1.0):
+def cos_basis(n=4, t=100, a=7, c=1.0, to=2.0):
   phi = lambda n,j: j * m.pi / (2)
   dis = lambda t: a * m.log(t + c)
   bas = lambda n,j,t: (dis(t) > (phi(n,j) - m.pi) and dis(t) < (phi(n,j) + m.pi)) * ((1.0/2.0)*(1 + m.cos(dis(t) - phi(n,j))))
   bas = np.vectorize(bas)
   res = np.zeros((n,t))
   for j in xrange(n):
-    res[j,:] = bas(n,j,np.arange(0.0, 1.0, 1.0/t))
+    res[j,:] = bas(n,j,np.arange(0.0, to, to/t))
   return res
 
 def straight_basis(a):
@@ -30,7 +30,6 @@ def run_bases(bases, data):
 
 def run_filter(filt, data):
   orig = -1*int(np.floor(filt.size/2))
-  print orig, filt.size
   return nd.convolve1d(data, filt, mode='constant', cval=0.0, origin=orig)
 
 class LikelihoodModel:
@@ -87,7 +86,6 @@ class MultiNeuron(LikelihoodModel):
     self.base_spikes = run_bases(self.spike_basis, self.spikes)
     self.base_stims  = run_bases(self.stim_basis, self.stims)
   
-
   def pack(self, K, H, Mu):
     shapes = (K.size, K.shape, H.size, H.shape, Mu.size, Mu.shape)
     theta = np.r_[np.ndarray.ravel(K),np.ndarray.ravel(H),np.ndarray.ravel(Mu)]
