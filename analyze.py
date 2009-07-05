@@ -20,6 +20,7 @@ def run_analysis(prefix, id):
   model      = standard_model()
   result     = analyze_experiment(model, experiment)
   save_parameters(prefix+"_R.mat", result)
+  io.savemat(prefix+"_R.mat",{'stim_bas':model.stim_basis, 'spike_bas':model.spike_basis})
 
 def analyze_experiment(model,experiment):
   ''' Performs ML inference on the given model,
