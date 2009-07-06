@@ -5,28 +5,47 @@ from signals import *
 
 class Simulator:
   ''' Wrapper for the Brian simulator '''
-  def __init__(self, model={'a':0.2/ms, 'b':0.2/ms}, 
-                     neurons={'N':100, 'Vr':-75.0*mV, 'b':0.2/ms},
-                     connect={'weight':0.2*nS, 'sparseness':0.5,
+  
+  eqs = ('dv/dt = ((0.04/mV)*v**2 + 5.0*v + 140.0*mV - w)/ms + I/C_m : volt',
+              'dw/dt = a*(b*v - w)/ms : volt',
+              'I = ge*(Ee-v) - gi*(Ei-v) : amp',
+              'dge/dt = -ge / te : siemens',
+              'dgi/dt = -gi / ti : siemens' )
+  thr = 'v > 30.0*mV'
+  res = 'v = c; w = w + d'
+  
+  def __init__(self, model={'a':0.02,     'b':0.2, 
+                            'c':-65.0*mV, 'd':8.0*mV,
+                            'Ee':0*mV,    'Ei':-80.0*mV, 
+                            'te':10*ms,   'ti':10*ms,
+                            'C_m':1.3*pF},
+                     init={ 'gei':10*nS,  'gii':20*nS },
+                     neurons={'N':100},
+                     connect={'weight':0.2*nS,     'sparseness':0.5,
                               'delay':(0*ms,5*ms), 'max_delay':5*ms}):
-    self.model   = Izhikevich(**model)
+    neurons.update({'threshold':self.thr, 'reset':self.res})
+    
+    self.model   = Equations(eqs=self.eqs, **model)
     self.neurons = NeuronGroup(model=self.model, **neurons)
     self.connect = Connection(self.neurons, self.neurons, **connect)
-    self.params  = {'model':model, 'neurons':neurons, 'connect':connect }
+    self.params  = {'model':model, 'neurons':neurons, 'connect':connect,
+                    'init':init}
   
-  def run(self, input_signal, input_conn):
+  def run(self, signal=GaussianNoiseGenerator().generate(Trial(0.0,100.0,0.1)), 
+                connect_in={'state':'ge','weight':10*nS, 'delay':1*ms}):
     ''' Runs a trial of the simulation using the 
         input signal provided '''
-    self.params['stimulus'] = input_conn
-    trial = input_signal.trial
+    self.params['connect_in'] = connect_in
+    
+    trial = signal.trial
   
-    self.signal      = input_signal
+    self.signal      = signal
     self.clock       = Clock(dt=trial.dt*ms)
-    self.input       = PoissonGroup(input_signal.dims(), rates=lambda t: input_signal[t],
-                        clock=self.clock)
-    self.stimulus    = Connection(input, neurons, **input_conn)
-    self.in_monitor  = SpikeMonitor(self.input)
-    self.out_monitor = SpikeMonitor(self.output)
+    self.input       = PoissonGroup(signal.dims(), rates=lambda t: self.signal[t],
+                                    clock=self.clock)
+    self.stimulus    = Connection(input, neurons, **connect_in)
+    self.in_monitor  = SpikeMonitor(self.input, record=True)
+    self.out_monitor = SpikeMonitor(self.output, record=True)
   
     self.neurons.clock = self.clock
     self.__callback__(input_signal, input_conn)
@@ -35,7 +54,7 @@ class Simulator:
     spikes_in  = self.monitor_to_signal(self.trial, input_signal.dims(), self.in_monitor)
     spikes_out = self.monitor_to_signal(self.trial, self.params['neurons']['N'], self.out_monitor)
     
-    result = Result(self.params, input_signal, (spikes_in, spikes_out), trial)
+    result = Result(self.params, signal, (spikes_in, spikes_out))
     return result
   
   def monitor_to_signal(self, trial, N, monitor):
@@ -48,6 +67,7 @@ class Simulator:
     ''' Allows for customization of initialization - usually
         weights and other complicated connectivity will be done here.'''
     return None
+
 
 class Result:
   ''' Object variables:

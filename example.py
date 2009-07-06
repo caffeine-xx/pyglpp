@@ -13,7 +13,7 @@ tau_e = 10.0*ms
 tau_i = 10.0*ms
 
 eqs = ('dv/dt = ((0.04/mV)*v**2 + 5.0*v + 140.0*mV - w)/ms + I/C_m : volt',
-       'dw/dt = a*(b*v - w)/second : volt',
+       'dw/dt = a*(b*v - w)/ms : volt',
        'I = ge*(Ee-v) - gi*(Ei-v) : amp',
        'dge/dt = -ge / tau_e : siemens',
        'dgi/dt = -gi / tau_i : siemens'
