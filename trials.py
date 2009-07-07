@@ -108,7 +108,7 @@ def random_network_trial(a=0.2/ms,b=0.2/ms,rates=None,S=20,
     rates = normal_rate_generator
   else:
     rates = eval(rates)
-
+  
   # Models 
   model = Izhikevich(a,b)
   reset = AdaptiveReset(Vr=-75*mV, b=0.2/ms)
