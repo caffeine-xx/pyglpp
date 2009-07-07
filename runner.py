@@ -1,30 +1,25 @@
 import sys
 from trials import *
 from analyze import *
+from numpy import *
 import cPickle
 
-def run_random_network_trial(prefix,id):
-  ''' Runs a trial (a simulation) from trials.py
-      Generates parameters from prefix_params, runs prefix_trial,
-      and saves the relevant info in results/prefix_id_P.dat '''
-  params = random_network_params(prefix,id)
-  random_network_trial(**params)
-  cPickle.dump(params, file("results/%s_%i_P.dat" % (prefix, id), 'w'), 2)
+def calc_filters(params):
+  Xfilters = zeros((params['N']+params['I'],params['S'],params['Xb'].shape[1]))
+  Yfilters = zeros((params['N']+params['I'],params['N']+params['I'],params['Yb'].shape[1]))
+  for i in xrange(params['N']):
+    for j in xrange(params['S']):
+      Xfilters[i,j,:] = np.average(params['Xb'],axis=0,weights=params['K'][i,j,:])
+    for j in xrange(params['N']):
+      Yfilters[i,j,:] = average(params['Yb'],axis=0,weights=params['H'][i,j,:])
+  return (Xfilters,Yfilters)
 
-def run_analysis(prefix, id):
-  ''' Analyzes a particular trial and saves the result in
-      filters in prefix_id_R.mat (MATLAB-compatible)
-      Bases are currently hardcoded i, need to find neater
-      solution. '''
-  params = cPickle.load(file("results/%s_%i_P.dat" % (prefix, id), 'r'))
-  experiment = load_brian_experiment(params['prefix'])
-  model      = standard_model()
-  result     = analyze_experiment(model, experiment)
-  save_parameters("results/%s_%i_R.mat" % (prefix,id), result)
-
-if(__name__ == "__main__"):
-    for i in xrange(int(sys.argv[1]),int(sys.argv[2])):
-      print "====\tRunning network: \t%i"% i
-      run_random_network_trial("random_network",i)
-      print "====\tAnalyzing network: \t%i" % i
-      run_analysis("random_network",i)
+def load_results(prefix,id):
+  filename = "%s_%i" %(prefix,id)
+  params = cPickle.load(file(filename+"_P.pickle"))
+  params.update(io.loadmat(filename+"_R.mat"))
+  params['K'] = params['K'].reshape((params['N'],params['S'],params['Xb'].shape[0]))
+  params['H'] = params['H'].reshape((params['N'],params['N'],params['Yb'].shape[0]))
+  params.update(zip(('dt','T','stim','spike'),load_brian_experiment(filename)))
+  params['filename'] = filename
+  return params
