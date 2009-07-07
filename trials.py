@@ -112,8 +112,8 @@ def random_network_trial(a=0.2/ms,b=0.2/ms,rates=None,S=20,
   # Models 
   model = Izhikevich(a,b)
   reset = AdaptiveReset(Vr=-75*mV, b=0.2/ms)
-  neurons  = NeuronGroup(N, threshold=-30.0*mV, model=model, reset=reset)
-  stimulus = PoissonGroup(S, rates)
+  neurons    = NeuronGroup(N, threshold=-30.0*mV, model=model, reset=reset)
+  stimulus   = PoissonGroup(S, rates)
   neurons.vm = rand(N)*20.0*mvolt
   # Connectivity
   stimC = Connection(stimulus, neurons, max_delay=5*ms)
