@@ -50,7 +50,8 @@ def load_brian_experiment(prefix):
   # convert
   stim = spike_list_to_matrix(stim, t_stop, dt)
   neur = spike_list_to_sparse(neur, dt)
-  
+  print stim
+  print neur
   # done
   return (1.0, t_stop, stim, neur)
 
@@ -68,6 +69,8 @@ def load_experiment(prefix):
   stimulus = spike_list_to_matrix(stimulus, t_stop)
   inhibit  = spike_list_to_sparse(inhibit)
   excite   = spike_list_to_sparse(excite)
+
+  print excite
  
   # combine spike trains
   excite.extend(inhibit)
