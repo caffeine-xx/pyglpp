@@ -62,6 +62,40 @@ class LikelihoodModel:
     for i,s in enumerate(sparse):
       self.spikes[i,s]=1
 
+class SimpleModel(LikelihoodModel):
+  ''' Model using Signal api '''
+  def __init__(self, trial, in_signal, in_filter, out_signal, out_filter):
+    ''' Uses the Signals api.  Parameters:
+          - trial: Time dimension of experiment
+          - in_signal: Sparse or dense signal of inputs
+          - in_filter: Basis to filter the inputs
+          - out_signal: Sparse or dense signal of outputs (spikes)
+          - out_filter: Basis to filter the outputs '''
+    self.trial = trial
+    self.inp   = in_signal
+    self.out   = out_signal
+    self.in_f  = in_signal.filter_basis(in_filter)
+    self.out_f = out_signal.filter_basis(out_filter)
+
+  def simplify(self):
+    return (inp, Nx, out, N)
+
+  def logI(self, K, H, Mu):
+    I   = np.zeros([self.N,self.T],dtype='float64')
+    inp = self.in_f();  Nx = self.inp.dims()
+    out = self.out_f(); N  = self.out.dims()
+    for i in xrange(N):
+      for j in xrange(Nx):
+        res, s  = np.average(inp[j,:,:],axis=1,weights=K[i,j,:],returned=True)
+        I[i,:] += res*s
+      for j in xrange(N):
+        res, s  = np.average(out[j,:,:],axis=1,weights=H[i,j,:],returned=True)
+        I[i,:] += res*s
+      I[i,:] += Mu[i]
+    return I
+
+
+
 class MultiNeuron(LikelihoodModel):
   """ Multi-neuron Poisson model with user-specified bases"""
 

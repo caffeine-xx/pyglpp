@@ -110,11 +110,11 @@ class SparseBinarySignal(Signal):
       result[i,bins] = 1
     self.signal = result
 
-def filter_by(self, filter):
-  return self.fill().filter_by(filter)
+  def filter_by(self, filter):
+    return self.fill().filter_by(filter)
 
-def filter_basis(self, filter):
-  return self.fill().filter_basis(filter)
+  def filter_basis(self, filter):
+    return self.fill().filter_basis(filter)
 
 class SignalGenerator:
   ''' Signal generators generate a signal for the 

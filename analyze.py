@@ -1,7 +1,6 @@
 import cPickle
 
 from NeuroTools import signals
-
 from numpy import *
 from scipy import *
 from scipy import io
