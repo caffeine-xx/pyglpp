@@ -51,7 +51,6 @@ class Simulator:
     network.run(trial.duration()*ms)
     
     self.params['connect_in'] = connect_in
-    print v_mon.values
     
     spikes_in  = self.monitor_to_signal(trial, signal.dims(), in_monitor)
     spikes_out = self.monitor_to_signal(trial, self.params['neurons']['N'], out_monitor)
