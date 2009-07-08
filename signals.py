@@ -2,8 +2,6 @@ from numpy import *
 from scipy.ndimage import convolve1d
 from NeuroTools import signals
 
-# TODO: NeuroTools signal imports (07/02)
-
 class Trial:
   ''' Defines the timing of a particular trial of an experiment.
       Time is generally measured in milliseconds. '''
@@ -26,7 +24,7 @@ class Trial:
   
   def time_to_bin(self, t):
     ''' Transforms a time interval into the nearest bin '''
-    return vectorize(int)((t-t_start)/self.dt)
+    return vectorize(int)((t-self.t_start)/self.dt)
 
   def duration(self):
     return self.t_stop - self.t_start
@@ -48,10 +46,10 @@ class Signal:
     return self.signal
   
   def __getitem__(self, key):
-    return atleast_2d(self.signal)[:,key]
+    return Signal(self.trial, atleast_2d(self.signal)[:,key])
 
   def row(self,key):
-    return self.signal[row,:]
+    return Signal(self.trial, self.signal[key,:])
 
   def dims(self):
     return self.signal.ndim==1 and 1 or self.signal.shape[0]
@@ -73,11 +71,13 @@ class Signal:
 
   def filter_basis(self, basis):
     ''' Convolves each row of this signal by each element of
-        a basis.  Resulting scheme is [row, time, basis] '''
+        a basis.  Resulting scheme is [row, time, basis] 
+        Parameters
+          - basis: Multi-dimensional Signal representing a basis '''
     shape  = tuple(list(self.signal.shape) + [basis.dims()])
     result = zeros(shape)
     for j in xrange(basis.dims()):
-      result[:,:,j] = self.filter_by(basis.row(j))()
+      result[:,:,j] = self.filter_by(basis.row(j)).signal
     return Signal(self.trial, result)
 
 class SparseBinarySignal(Signal):
@@ -87,32 +87,34 @@ class SparseBinarySignal(Signal):
   def __init__(self, trial, signal):
     self.trial  = trial
     self.sparse = signal
-  
+    self.signal = None
+
   def dims(self): return len(self.sparse)
   
   def __call__(self): 
     self.fill() 
     return self.signal
-  
+
   def fill(self):
-    ''' Sort of memory-conscious version which
-        saves the result and re-uses it thereafter. '''
-    try: 
-      return Signal(self.trial,self.signal)
-    except:
-      dims = self.dims()
-      result = zeros((dims, self.trial.length()))
-      for i in xrange(dims):
-        bins = self.trial.time_to_bin(self.sparse[i])
-        result[i,bins] = 1
-      self.signal = Signal(self.trial,result)
-    return self.signal
-  
-  def filter_by(self, filter):
-    return self.fill().filter_by(filter)
-  
-  def filter_basis(self, filter):
-    return self.fill().filter_basis(filter)
+    if not getattr(self, 'signal'):
+      self.__fill__()
+    return self
+
+  def __fill__(self):
+    ''' Creates a dense vector of the same signal '''
+    
+    dims = self.dims()
+    result = zeros((dims, self.trial.length()))
+    for i in xrange(dims):
+      bins = self.trial.time_to_bin(self.sparse[i])
+      result[i,bins] = 1
+    self.signal = result
+
+def filter_by(self, filter):
+  return self.fill().filter_by(filter)
+
+def filter_basis(self, filter):
+  return self.fill().filter_basis(filter)
 
 class SignalGenerator:
   ''' Signal generators generate a signal for the 
