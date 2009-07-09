@@ -4,8 +4,8 @@ from NeuroTools import signals
 
 class Trial:
   ''' Defines the timing of a particular trial of an experiment.
-      Time is generally measured in milliseconds. '''
-  def __init__(self, t_start, t_stop, dt):
+      Time is in seconds, by convention.  dt is usually milliseconds.'''
+  def __init__(self, t_start=0.0, t_stop=10.0, dt=0.001):
     '''  Parameters:
           - t_start = Beginning time.
           - t_stop  = End time.
@@ -45,8 +45,10 @@ class Signal:
   def __call__(self):
     return self.signal
   
-  def __getitem__(self, key):
-    return Signal(self.trial, atleast_2d(self.signal)[:,key])
+  def __getitem__(self, t):
+    t = self.trial.time_to_bin(float(t))
+    if(self.signal.ndim == 1): return signal[t]
+    return self.signal[:,t]
 
   def row(self,key):
     return Signal(self.trial, self.signal[key,:])

@@ -2,14 +2,13 @@ from simulations import *
 from signals import *
 from brian import *
 
-def single_izhikevich_trial(prefix):
-  
+def single_izhikevich_trial(prefix="results/single_trial_test"):
   neur = {'N': 1, 'Ni': 0}
   conn = {'weight':0.0*nS}
   inhi = {'weight':0.0*nS}
   simu = Simulator(neurons=neur, connect=conn, inhibit=inhi)
   
-  time = Trial(0.0, 1000.0, 1.0)
+  time = Trial()
   sign = GaussianNoiseGenerator(50.0, 30.0, 1).generate(time)
   resu = simu.run(sign)
    

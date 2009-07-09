@@ -17,14 +17,14 @@ class Simulator:
     'model':  {'a':0.02,        'b':0.2, 
                'Ee':0*mV,       'Ei':-80.0*mV, 
                'te':10*ms,      'ti':10*ms,
-               'C_m':2.0*pF                 }
-    'init':   {'gei':10*nS,     'gii':20*nS }
+               'C_m':2.0*pF                 },
+    'init':   {'gei':10*nS,     'gii':20*nS },
     'neurons':{'N':20,          'Ni': 7,
                'threshold':     'v > 30.0*mV',
                'reset':         'v = -65.0*mV;'+
-                                'w += 8.0*mV'}
+                                'w += 8.0*mV'},
     'connect':{'weight':0.1*nS, 'sparseness':0.1,
-               'state':'ge'                 }
+               'state':'ge'                 },
     'inhibit':{'weight':0.1*nS, 'sparseness':0.2,
                'state':'gi'                 },
     'input':  {'state':'ge',    'weight':10*nS, 
@@ -39,12 +39,12 @@ class Simulator:
           - connect -> Interior connection properties
           - inhibit -> Inhibitory connection properties '''
     for k in params: self.p[k].update(params[k])
-    Ni = self.p['neurons']['Ni'])
+    Ni = self.p['neurons']['Ni']
     self.model   = Equations(self.eqs, **self.p['model'])
     self.neurons = NeuronGroup(model=self.model,**self.p['neurons'])
     self.connect = Connection(self.neurons[Ni:], self.neurons, 
       **self.p['connect'])
-    for k in self.p['init']: setattr(self.neurons, k, self.p['init'][v])
+    for k in self.p['init']: setattr(self.neurons, k, self.p['init'][k])
     if Ni > 0: 
       self.inhibit = Connection(self.neurons[:Ni], self.neurons, **self.p['inhibit'])
     else: self.inhibit = None
