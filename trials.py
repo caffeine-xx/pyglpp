@@ -17,42 +17,18 @@ def run_random_network_trial(prefix,id):
 
 
 def single_izhikevich_trial(prefix):
-  
   neur = {'N': 1, 'Ni': 0}
   conn = {'weight':0.0*nS}
   inhi = {'weight':0.0*nS}
   simu = Simulator(neurons=neur, connect=conn, inhibit=inhi)
   
-  time = Trial(0.0, 1000.0, 1.0)
+  time = Trial()
   sign = GaussianNoiseGenerator(50.0, 30.0, 1).generate(time)
   resu = simu.run(sign)
    
   resu.write_to_file("%s_R.pickle" % prefix)
   return resu
 
-def single_izhikevich_trial(a=0.2/ms,b=0.2/ms,rate=40.0*Hz,deviation=20.0*Hz,time=10000*ms,prefix='results/single_izhikevich_trial'):
-  ''' Runs a trial of an izhikevich neuron with a single
-      randomly rate-varying Poisson input, centered at 40Hz.'''
-  # Izhikevich model with excitatory synapse
-  model  = Izhikevich(a,b)
-  reset  = AdaptiveReset(Vr=-75*mV, b=0.2/ms)
-  neuron = NeuronGroup(1,model=model, threshold=-30.0*mV, reset=reset)
-    
-  # Poisson stimulus
-  rates           = lambda t: max(0,normal(rate, deviation))
-  stimulus        = PoissonGroup(1,rates=rates)
-  connection      = Connection(stimulus, neuron)
-  connection[0,0] = 40*mvolt
-  
-  # Spike recording
-  in_file  = "%s_S.ras"  % (prefix)
-  out_file = "%s_N.ras" % (prefix)
-  
-  in_monitor  = NeuroToolsSpikeMonitor(stimulus,in_file,record=True)
-  out_monitor = NeuroToolsSpikeMonitor(neuron,out_file,record=True)
-  
-  neuron.clock.reinit()
-  run(time)
 
 def random_network_params(prefix="results/random_network_0",id=0):
   ''' For a given id, generates a unique set of parameters for

@@ -5,7 +5,7 @@ from NeuroTools import signals
 class Trial:
   ''' Defines the timing of a particular trial of an experiment.
       Time is in seconds, by convention.  dt is usually milliseconds.'''
-  def __init__(self, t_start=0.0, t_stop=10.0, dt=0.001):
+  def __init__(self, t_start=0.0, t_stop=5.0, dt=0.001):
     '''  Parameters:
           - t_start = Beginning time.
           - t_stop  = End time.
@@ -28,6 +28,12 @@ class Trial:
 
   def duration(self):
     return self.t_stop - self.t_start
+  
+  def to_hash(self):
+    return {
+      't_start': self.t_start,
+      't_stop':  self.t_stop,
+      'dt':      self.dt }
 
 class Signal:
   ''' A signal over a certain period of time, represented as a
@@ -81,6 +87,11 @@ class Signal:
     for j in xrange(basis.dims()):
       result[:,:,j] = self.filter_by(basis.row(j)).signal
     return Signal(self.trial, result)
+  
+  def to_analog(self):
+    if (self.dims()==1):
+      return signals.AnalogSignal(self.signal, **self.trial.to_hash())
+    return signals.AnalogSignalList(self.signal, **self.trial.to_hash())
 
 class SparseBinarySignal(Signal):
   ''' A sparse binary signal is stored as a list of 2ples,
@@ -104,7 +115,6 @@ class SparseBinarySignal(Signal):
 
   def __fill__(self):
     ''' Creates a dense vector of the same signal '''
-    
     dims = self.dims()
     result = zeros((dims, self.trial.length()))
     for i in xrange(dims):
@@ -118,11 +128,24 @@ class SparseBinarySignal(Signal):
   def filter_basis(self, filter):
     return self.fill().filter_basis(filter)
 
+  def to_neuro(self):
+    return map(lambda s: SpikeTrain(s, t_start = self.trial.t_start, 
+      t_stop = self.trial.t_stop), self.sparse)
+   
 class SignalGenerator:
   ''' Signal generators generate a signal for the 
       duration of a trial '''
   def generate(self, trial):
     raise Exception("Not implemented.") 
+
+class FlatlineGenerator(SignalGenerator):
+  def __init__(self, mean=1.0, dim=1):
+    self.mean = mean
+    self.dim  = dim
+
+  def generate(self, trial):
+    values = self.mean * ones((self.dim, trial.length()))
+    return Signal(trial, values)
 
 class GaussianNoiseGenerator(SignalGenerator):
   ''' Generate random Gaussian white noise.'''
