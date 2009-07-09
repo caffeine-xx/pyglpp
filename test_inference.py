@@ -4,6 +4,7 @@ import math as m
 
 from inference import *
 from stimulus import *
+from signals import *
 
 # --------------
 # bases tests
@@ -132,6 +133,98 @@ def test_multineuron():
         g = by[j,sp,l] - np.sum(by[j,:,l] * eI[i,:])
         assert abs(g-dH[i,j,l]) < 0.01
 
+def test_simplemodel():
+
+  b = np.array([
+    [1,1],
+    [2,1]])
+  b = Signal(Trial(0,2,1),b)
+
+  mn = SimpleModel(b,b)
+
+  t = Trial(0,8,1)
+  x = np.array([
+    [0,1,0,0, 0,0,0,0],
+    [0,0,0,0, 2,0,0,0]])
+  s = [(0,1),(1,4)]
+
+  x = Signal(t,x)
+  s = SparseBinarySignal(t,s)
+  
+  mn.set_data(t,x,s)
+
+  b = b()
+  s = s.sparse_bins()
+
+  bx =  np.array(
+        [[[ 0.0,  0.0],
+          [ 1.0,  2.0],
+          [ 1.0,  1.0],
+          [ 0.0,  0.0],
+          [ 0.0,  0.0],
+          [ 0.0,  0.0],
+          [ 0.0,  0.0],
+          [ 0.0,  0.0]],
+         [[ 0.0,  0.0],
+          [ 0.0,  0.0],
+          [ 0.0,  0.0],
+          [ 0.0,  0.0],
+          [ 2.0,  4.0],
+          [ 2.0,  2.0],
+          [ 0.0,  0.0],
+          [ 0.0,  0.0]]])
+  by = np.array(
+        [[[ 0.0,  0.0],
+          [ 1.0,  2.0],
+          [ 1.0,  1.0],
+          [ 0.0,  0.0],
+          [ 0.0,  0.0],
+          [ 0.0,  0.0],
+          [ 0.0,  0.0],
+          [ 0.0,  0.0]],
+         [[ 0.0,  0.0],
+          [ 0.0,  0.0],
+          [ 0.0,  0.0],
+          [ 0.0,  0.0],
+          [ 1.0,  2.0],
+          [ 1.0,  1.0],
+          [ 0.0,  0.0],
+          [ 0.0,  0.0]]])
+
+  assert (bx==mn.base_stims).all()
+  assert (by==mn.base_spikes).all()
+
+  # check intensities
+  K = np.ones((2, 2, 2))
+  K[1,:,:] = K[1,:,:] * 2
+  H = np.ones((2, 2, 2))
+  H[1,:,:] = H[1,:,:] * 2
+  M = np.zeros(2)
+  I = mn.logI(K,H,M)
+  vI = np.array([[0,6,4,0, 9,6,0,0],
+                 [0,12,8,0, 18,12,0,0]])
+  assert (I==vI).all()
+
+  # check likelihoods
+  l0 = vI[0,1] - np.sum(np.exp(vI[0,:]))
+  l1 = vI[1,4] - np.sum(np.exp(vI[1,:]))
+  L  = l0 + l1
+  cL = mn.logL(K,H,M)
+  assert (L - mn.logL(K,H,M)) < 0.001
+
+  # check gradients
+  eI = np.exp(I)
+  dK, dH, dM = mn.logL_grad(K,H,M)
+  for i in range(0,2):
+    for j in range(0,2):
+      for l in range(0,2):
+        sp = s[i][0]
+        g = bx[j,sp,l] - np.sum(bx[j,:,l] * eI[i,:])
+        assert abs(g-dK[i,j,l]) < 0.01
+        g = by[j,sp,l] - np.sum(by[j,:,l] * eI[i,:])
+        assert abs(g-dH[i,j,l]) < 0.01
+
+
 # ------------
 # maximum likelihood tests
 # ------------
@@ -167,6 +260,7 @@ def test_mlestimator():
 
 if (__name__ == "__main__"):
   test_multineuron()
+  test_simplemodel()
   test_mlestimator()
   test_pack_unpack()
-
+  

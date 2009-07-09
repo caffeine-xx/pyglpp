@@ -1,3 +1,4 @@
+from memoize import *
 from numpy import *
 from scipy.ndimage import convolve1d
 from NeuroTools import signals
@@ -21,10 +22,11 @@ class Trial:
   def length(self):
     ''' Number of bins '''
     return (self.t_stop - self.t_start) / self.dt
-  
+
   def time_to_bin(self, t):
     ''' Transforms a time interval into the nearest bin '''
-    return vectorize(int)((t-self.t_start)/self.dt)
+    f = vectorize(lambda t: int((float(t)-self.t_start)/self.dt))
+    return f(t)
 
   def duration(self):
     return self.t_stop - self.t_start
@@ -65,6 +67,8 @@ class Signal:
   def length(self):
     return self.signal.ndim==1 and self.signal.size or self.signal.shape[1]
 
+  def fill(self): return self
+
   def filter_by(self,filter):
     ''' Convolves the rows of this signal with a 1-D signal,
         and returns the resulting signal '''
@@ -91,37 +95,49 @@ class Signal:
   def to_analog(self):
     if (self.dims()==1):
       return signals.AnalogSignal(self.signal, **self.trial.to_hash())
-    return signals.AnalogSignalList(self.signal, **self.trial.to_hash())
+    return signals.AnalogSignalList(self.signal, range(self.dims()),  **self.trial.to_hash())
 
-class SparseBinarySignal(Signal):
-  ''' A sparse binary signal is stored as a list of 2ples,
-      (time, value) - the value is zero outside of these
-      times. This is lazily filled-in when it is first needed. '''
-  def __init__(self, trial, signal):
+class SparseBinarySignal:
+
+  def __init__(self, trial, signal, multi=False):
     self.trial  = trial
-    self.sparse = signal
-    self.signal = None
+    self.signal = False
+    self.bins   = False
+    self.sparse = self.break_out(signal)
+    self.N      = len(self.sparse)
 
-  def dims(self): return len(self.sparse)
+  def __call__(self):
+    return self.fill()()
+
+  def dims(self): return self.N
   
-  def __call__(self): 
-    self.fill() 
-    return self.signal
+  def break_out(self, signal):
+    ''' Breaks a list of (id, time) events into a list of
+        [[times], [times]] events '''
+    list = [[]]
+    for (i,t) in signal:
+      while not (i<len(list)): list.append([])
+      list[i].append(t)
+    return list
 
+  def sparse_bins(self):
+    self.bins or self.__bins__()
+    return self.bins
+  
   def fill(self):
-    if not getattr(self, 'signal'):
-      self.__fill__()
-    return self
-
+    self.signal or self.__fill__()
+    return self.signal
+  
+  def __bins__(self):
+    self.bins = [self.trial.time_to_bin(times) for times in self.sparse]
+    
   def __fill__(self):
     ''' Creates a dense vector of the same signal '''
-    dims = self.dims()
-    result = zeros((dims, self.trial.length()))
-    for i in xrange(dims):
-      bins = self.trial.time_to_bin(self.sparse[i])
-      result[i,bins] = 1
-    self.signal = result
-
+    result = zeros((self.N, self.trial.length()))
+    bins = self.sparse_bins()
+    for i in xrange(self.N): result[i,bins[i]] = 1
+    self.signal = Signal(self.trial,result)
+  
   def filter_by(self, filter):
     return self.fill().filter_by(filter)
 
@@ -130,7 +146,7 @@ class SparseBinarySignal(Signal):
 
   def to_neuro(self):
     return map(lambda s: SpikeTrain(s, t_start = self.trial.t_start, 
-      t_stop = self.trial.t_stop), self.sparse)
+                        t_stop = self.trial.t_stop), self.sparse)
    
 class SignalGenerator:
   ''' Signal generators generate a signal for the 
@@ -173,6 +189,6 @@ class SineBasisGenerator(SignalGenerator):
     dis = lambda t: self.a * log(t + self.c)
     domain = lambda j,t: dis(t) > phi(j) - pi and dis(t) < phi(j) + pi
     basis  = vectorize(lambda j,t: domain(j,t) * 0.5 * (1 + cos(dis(t) - phi(j))))
-    result = basis(range(dim), trial.range())
+    result = array([basis(i, trial.range()) for i in range(dim)])
     return Signal(trial, result)
 

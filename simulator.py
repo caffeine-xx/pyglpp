@@ -2,7 +2,7 @@ from brian import *
 from brian.library.IF import *
 from numpy import *
 from signals import *
-from results import *
+from result import *
 
 class Simulator:
   ''' Wrapper for the Brian simulator '''
@@ -86,3 +86,16 @@ class Simulator:
     for k in monitors:
       values[k] = monitors[k].values
     return values
+
+if(__name__=="__main__"):
+  import sys
+  filename = "results/"+sys.argv[1]+".pickle"
+  print "===== Simulator: "
+  sim = Simulator()
+  print " >> parameters: "
+  print sim.p
+  print " >> running..."
+  res = sim.run()
+  print " >> writing output to %s" % filename
+  res.write_to_file(filename)
+

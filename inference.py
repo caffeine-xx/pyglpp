@@ -4,20 +4,6 @@ import scipy.ndimage as nd
 import scipy.optimize as opt
 from memoize import Memoize
 
-def cos_basis(n=4, t=100, a=7, c=1.0, to=2.0):
-  phi = lambda n,j: j * m.pi / (2)
-  dis = lambda t: a * m.log(t + c)
-  bas = lambda n,j,t: (dis(t) > (phi(n,j) - m.pi) and dis(t) < (phi(n,j) + m.pi)) * ((1.0/2.0)*(1 + m.cos(dis(t) - phi(n,j))))
-  bas = np.vectorize(bas)
-  res = np.zeros((n,t),dtype='float64')
-  for j in xrange(n):
-    res[j,:] = bas(n,j,np.arange(0.0, to, to/t))
-  return res
-
-def straight_basis(a):
-  bas = lambda n, j, t: a
-  return np.vectorize(bas)
-
 def run_bases(bases, data):
   """ Correlates a dataset with a set of bases.
       Takes a 2D array to a 3D array """
@@ -61,40 +47,6 @@ class LikelihoodModel:
         spike trains to full representation '''
     for i,s in enumerate(sparse):
       self.spikes[i,s]=1
-
-class SimpleModel(LikelihoodModel):
-  ''' Model using Signal api '''
-  def __init__(self, trial, in_signal, in_filter, out_signal, out_filter):
-    ''' Uses the Signals api.  Parameters:
-          - trial: Time dimension of experiment
-          - in_signal: Sparse or dense signal of inputs
-          - in_filter: Basis to filter the inputs
-          - out_signal: Sparse or dense signal of outputs (spikes)
-          - out_filter: Basis to filter the outputs '''
-    self.trial = trial
-    self.inp   = in_signal
-    self.out   = out_signal
-    self.in_f  = in_signal.filter_basis(in_filter)
-    self.out_f = out_signal.filter_basis(out_filter)
-
-  def simplify(self):
-    return (inp, Nx, out, N)
-
-  def logI(self, K, H, Mu):
-    I   = np.zeros([self.N,self.T],dtype='float64')
-    inp = self.in_f();  Nx = self.inp.dims()
-    out = self.out_f(); N  = self.out.dims()
-    for i in xrange(N):
-      for j in xrange(Nx):
-        res, s  = np.average(inp[j,:,:],axis=1,weights=K[i,j,:],returned=True)
-        I[i,:] += res*s
-      for j in xrange(N):
-        res, s  = np.average(out[j,:,:],axis=1,weights=H[i,j,:],returned=True)
-        I[i,:] += res*s
-      I[i,:] += Mu[i]
-    return I
-
-
 
 class MultiNeuron(LikelihoodModel):
   """ Multi-neuron Poisson model with user-specified bases"""
@@ -179,6 +131,24 @@ class MultiNeuron(LikelihoodModel):
         dH[i,j,:] -= self.delta * np.sum(self.base_spikes[j,:,:] * expI[i,:].reshape((I[i,:].size,1)),0)
       dM[i]= len(self.sparse[i])-self.delta*np.sum(expI[i,:])
     return dK, dH, dM
+
+
+class SimpleModel(MultiNeuron):
+  ''' Model using Signal api: dirty hack wrapper, should
+    write a cleaner version. '''
+  def __init__(self, in_filter, out_filter):
+    self.in_filter = in_filter
+    self.out_filter = out_filter
+    MultiNeuron.__init__(self, in_filter.signal, out_filter.signal)
+
+  def set_data(self, trial, in_signal, out_signal):
+    ''' Uses the Signals api.  Parameters:
+          - trial: Time dimension of experiment
+          - in_signal: Sparse or dense signal of inputs
+          - out_signal: Sparse or dense signal of outputs (spikes) '''
+    MultiNeuron.set_data(self, 
+      trial.dt, trial.length(),
+      in_signal.signal, out_signal.sparse_bins())
 
 class MLEstimator(LikelihoodModel):
   """ Decorator for LikelihoodModels

@@ -1,13 +1,11 @@
 from signals import *
-import simulations as s
+import simulator as s
 reload(s)
 
 def single_izhikevich_trial(prefix="results/single_trial_test"):
   neur = {'N': 1, 'Ni': 0}
-  conn = {'weight':0.0*nS}
-  inhi = {'weight':0.0*nS}
   reco = {'v': True, 'I': True}
-  simu = s.Simulator(neurons=neur, connect=conn, inhibit=inhi, record=reco)
+  simu = s.Simulator(neurons=neur, record=reco)
   
   time = Trial(t_stop=2.0)
   sign = FlatlineGenerator(30.0, 1).generate(time)

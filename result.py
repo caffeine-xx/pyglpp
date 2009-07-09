@@ -1,6 +1,7 @@
 import cPickle
+from matplotlib import pyplot
+from brian import *
 from NeuroTools import signals
-from matplotlib import pylab
 
 class Result:
   ''' Object variables:
@@ -13,32 +14,61 @@ class Result:
   def __init__(self, params, signal, input, output, monitors={}):
     self.params = params
     self.signal = signal
-    self.input  = input
-    self.output = output 
+    self.input  = self.de_unit(input)
+    self.output = self.de_unit(output)
     self.monitors = monitors
-
+  
   def write_to_file(self,filename):
     cPickle.Pickler(file(filename,'w'),2).dump(self)
-  
+
+  def plot(self):
+    pyplot.figure()
+    time = self.signal.trial.range()
+    pyplot.plot(time, self.signal()[0], label='signal')
+    pyplot.figure()
+    pyplot.subplot(211)
+    self.raster(self.input, label='input')
+    pyplot.subplot(212)
+    self.raster(self.output, label='output')
+    for n,k in enumerate(self.monitors):
+      pyplot.subplot(int(len(self.monitors)*100 + 10 + n))
+      pyplot.figure()
+      [pyplot.plot(i) for i in self.monitors[k]]
+    pyplot.show()
+
+  def raster(self, train, **args):
+    ids = zeros(len(train))
+    tim = zeros(len(train))
+    for k,(i,t) in enumerate(train):
+      ids[k] = i
+      tim[k] = t
+    pyplot.plot(tim, ids, color='white', marker='o', markerfacecolor='blue',
+      markersize=3,  **args)
+
+  def de_unit(self, list):
+    return [(id, float(time)) for (id, time) in list]
+
 class NeuroToolsResult(Result):
   ''' Converts a normal result into NeuroTools signals '''
   def __init__(self, res):
     self.signal = res.signal.to_analog()
-    self.input  = signals.SpikeList(self.de_unit(res.input))
-    self.output = signals.SpikeList(self.de_unit(res.output))
+    ids = range(res.params['neurons']['N'])
+    self.input  = signals.SpikeList(self.de_unit(res.input), range(res.signal.dims()))
+    print self.input.spikes
+    self.output = signals.SpikeList(self.de_unit(res.output), ids)
+    print self.output.spikes
     self.monitors = {}
-    for k in self.monitors:
-      self.monitors[k] = signals.AnalogSignalList(res.monitors[k], res.signal.trial.dt)
+    for k in res.monitors:
+      self.monitors[k] = signals.AnalogSignalList(res.monitors[k]/ms, ids, **res.signal.trial.to_hash())
 
-  def de_unit(self, list):
-    return [(id, time / ms) for (id, time) in list]
 
   def graph(self):
     for k in self.monitors:
-      self.monitors[k].plot(ylabel=k)
-    self.input.raster_plot('input spikes')
-    self.output.raster_plot('output spikes')
-    self.signals.plot(ylabel='signal')
+      for j in self.monitors[k]:
+        j.plot(ylabel=k)
+    self.input.raster_plot()
+    self.output.raster_plot()
+    self.signal.plot(ylabel='signal')
     pylab.show()
 
 def load_result(filename):
