@@ -57,7 +57,6 @@ class Simulator:
                 input_param={}):
     ''' Runs a trial of the simulation using the input signal provided '''
     self.p['input'].update(input_param)
-
     trial       = signal.trial
     input       = PoissonGroup(signal.dims(), rates=lambda t: signal[t]*Hz)
     in_conn     = Connection(input, self.neurons, **self.p['input'])
@@ -66,11 +65,9 @@ class Simulator:
     network     = Network(self.neurons, self.connect, input,
                           in_conn, in_monitor, out_monitor)
     if self.inhibit: network.add(self.inhibit)
-
     monitors    = self.add_monitors(network)
     network.run(trial.duration()*second)
     values      = self.get_values(monitors)
-
     return Result(self.p, signal, in_monitor.spikes, out_monitor.spikes, values)
 
   def add_monitors(self, network):

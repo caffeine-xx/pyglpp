@@ -48,6 +48,9 @@ class LikelihoodModel:
     for i,s in enumerate(sparse):
       self.spikes[i,s]=1
 
+
+  
+  
 class MultiNeuron(LikelihoodModel):
   """ Multi-neuron Poisson model with user-specified bases"""
 
@@ -132,6 +135,55 @@ class MultiNeuron(LikelihoodModel):
       dM[i]= len(self.sparse[i])-self.delta*np.sum(expI[i,:])
     return dK, dH, dM
 
+  
+
+class FixedConnections(MultiNeuron):
+  ''' Neuron model allowing one to fix connections between specific pairs
+  of neurons to certain values. '''
+
+  def __init__(self, stim_basis, spike_basis):
+    MultiNeuron.__init__(self, stim_basis, spike_basis)
+  
+  def set_connectivity(self, conn):
+    ''' Takes a list of lists: 
+        conn[i] = [... j ...] if i=>j exists. '''
+    self.conn = conn
+
+  def logI(self, K, H, Mu):
+    I = np.zeros([self.N,self.T],dtype='float64')
+    for i in xrange(self.N):
+      for j in xrange(self.Nx):
+        res, s  = np.average(self.base_stims[j,:,:],axis=1,weights=K[i,j,:],returned=True)
+        I[i,:] += res*s
+      for j in self.conn[i]:
+        res, s  = np.average(self.base_spikes[j,:,:],axis=1,weights=H[i,j,:],returned=True)
+        I[i,:] += res*s
+      I[i,:] += Mu[i]
+    return I
+
+  def logL(self, K, H, Mu):
+    I = self.logI(K,H,Mu)
+    t1 = 0
+    for i in xrange(self.N):
+      t1 += np.sum(I[i,self.sparse[i]])
+    t2 = np.sum(np.sum(np.ma.exp(I)))
+    return t1 - self.delta*t2
+
+  def logL_grad(self, K, H, Mu):
+    I = self.logI(K,H,Mu)
+    expI = np.ma.exp(I)
+    dK = np.zeros([self.N, self.Nx, self.stim_b],dtype='float64')
+    dH = np.zeros([self.N, self.N, self.spike_b],dtype='float64')
+    dM = np.zeros([self.N],dtype='float64')
+    for i in xrange(self.N):
+      for j in xrange(self.Nx):
+        dK[i,j,:] = np.sum(self.base_stims[j,self.sparse[i],:],0)
+        dK[i,j,:] -= self.delta * np.sum(self.base_stims[j,:,:] * expI[i,:].reshape((I[i,:].size,1)),0)
+      for j in self.conn[i]:
+        dH[i,j,:] = np.sum(self.base_spikes[j,self.sparse[i],:],0)
+        dH[i,j,:] -= self.delta * np.sum(self.base_spikes[j,:,:] * expI[i,:].reshape((I[i,:].size,1)),0)
+      dM[i]= len(self.sparse[i])-self.delta*np.sum(expI[i,:])
+    return dK, dH, dM
 
 class SimpleModel(MultiNeuron):
   ''' Model using Signal api: dirty hack wrapper, should
