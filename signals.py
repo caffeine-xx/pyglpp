@@ -5,7 +5,7 @@ from NeuroTools import signals
 
 class Trial:
   ''' Defines the timing of a particular trial of an experiment.
-      Time is in seconds, by convention.  dt is usually milliseconds.'''
+      Time is in seconds, by convention.'''
   def __init__(self, t_start=0.0, t_stop=5.0, dt=0.001):
     '''  Parameters:
           - t_start = Beginning time.

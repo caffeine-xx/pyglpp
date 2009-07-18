@@ -9,7 +9,7 @@ def run_analysis(prefix,  model=False):
   if not model: model = standard_model()
   experiment = result.load_result(prefix+".pickle")
   inferred   = analyze_experiment(model, experiment)
-  save_parameters(prefix+".mat", inferred)
+  io.savemat(prefix+".mat",inferred)
   return inferred
 
 def analyze_experiment(model,experiment):
@@ -25,34 +25,18 @@ def analyze_experiment(model,experiment):
   initial   = model.random_args()
   estimator = MLEstimator(model)
   maximized = estimator.maximize(*initial)
-  
-  return maximized
+  intensity = model.logI(*maximized)
+  result    = dict(zip(('K','H','Mu','logI'),maximized + (intensity,)))
+
+  return result
 
 def standard_model():
-  length     = Trial(0,10.0,0.1)
+  length     = Trial(0,0.20,0.001)
   stim_bas   = SineBasisGenerator(2.5,4).generate(length)
   spike_bas  = SineBasisGenerator(7, 10).generate(length)
   model      = SimpleModel(stim_bas, spike_bas)
   return model
 
-def load_parameters(filename):
-  ''' Loads a set of poisson parmaeters from a file '''
-  p = io.loadmat(filename)
-  return param_from_dict(p)
-
-def save_parameters(filename, parameters,model=None):
-  ''' Saves a set of poisson parameters to a file '''
-  params = param_to_dict(parameters)
-  if model != None:
-    params['Xb'] = model.stim_basis
-    params['Yb'] = model.spike_basis
-  io.savemat(filename,params)
-
-def param_to_dict(parameters):
-  return dict(zip(('K','H','Mu'),parameters))
-
-def param_from_dict(p):
-  return (p['K'],p['H'],p['Mu'])
 
 if(__name__=="__main__"):
   import sys
