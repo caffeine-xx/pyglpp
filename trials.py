@@ -5,30 +5,39 @@ import cPickle
 
 from signals import *
 
-def two_neuron(prefix, perm_input=0, perm_weight=0):
+def two_neuron(prefix, pw=0, pi=0):
+  (pw,pi) = map(int, [pw, pi])
+  
+  model= {'C_m': 4.0*pF}
   neur = {'N': 2,    'Ni': 0}
   reco = {'v': True, 'I': True}
   
-  (weight, inputs) = weight_permutations(perm_weight, perm_input)
+  (weight, inputs) = weight_permutations(pw, pi)
   
-  conn = {'weight':weight}
-  inpu = {'weight':inputs}
+  conn = {'weight':weight*2, 'delay':True, 'max_delay':10*ms}
+  inpu = {'weight':inputs,'sparseness':None}
   
-  time = Trial(t_stop=1.0)
-  sign = GaussianNoiseGenerator(10.0, 2.0, 1).generate(time)
+  time = Trial(t_stop=2.0)
+  sign = GaussianNoiseGenerator(15.0, 2.0, 1).generate(time)
+
   return ({'neurons': neur, 'record':reco, 
-           'connect': conn, 'inputs':inpu},sign) 
+           'connect': conn, 'inputs':inpu,
+           'model':model},sign) 
 
 def one_neuron(prefix,*args):
   neur = {'N': 1, 'Ni': 0}
   conn = {'weight':0.0*nS}
   inhi = {'weight':0.0*nS}
-  
-  time = Trial()
-  sign = GaussianNoiseGenerator(10.0, 2.0, 1).generate(time)
-  
-  return ({'neurons': neur, 'inhibit':inhi, 
-            'connect': conn},sign) 
+  inpu = {'weight':array([[1.5*nS]]),'sparseness':None}
+  mode = {'C_m': 2.0*pF}
+  reco = {'v': True, 'I': True}
+
+  time = Trial(t_stop=1.0)
+  sign = GaussianNoiseGenerator(20.0).generate(time)
+
+  return ({ 'neurons': neur, 'inhibit':inhi, 
+            'connect': conn, 'model': mode,
+            'record': reco, 'inputs': inpu },sign) 
 
 def random_net(prefix,N=200,lam=1.0, pi=0.1, rs=0.02):
   N = int(N)
@@ -45,7 +54,7 @@ def random_net(prefix,N=200,lam=1.0, pi=0.1, rs=0.02):
   inpu = {'sparseness': pi}
   inhi = {'sparseness': 0.05}
 
-  time = Trial(0.0,20.0,0.001)
+  time = Trial(0.0,2.0,0.001)
   sign = GaussianNoiseGenerator(4.8,1.0,10).generate(time)
   return ({'neurons':neur, 'connect': conn, 'inhibit':inhi, 'inputs':inpu}, sign)
 
@@ -71,11 +80,13 @@ def weight_permutations(perm_weight, perm_input):
   weight = [array([[1.0, 0.0],[0.0, 0.0]])*nS,
             array([[0.0, 1.0],[0.0, 0.0]])*nS,
             array([[0.0, 0.0],[1.0, 0.0]])*nS,
-            array([[0.0, 0.0],[0.0, 1.0]])*nS]
-  
+            array([[0.0, 0.0],[0.0, 1.0]])*nS,
+            array([[0.0, 1.0],[1.0, 0.0]])*nS]
+
   inputs = [array([0.0, 0.0])*nS,
             array([1.0, 0.0])*nS,
             array([1.0, 1.0])*nS]
+
   inputs = map(atleast_2d, inputs)
   return (weight[perm_weight],inputs[perm_input])
 

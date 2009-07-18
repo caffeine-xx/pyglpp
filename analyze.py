@@ -31,9 +31,10 @@ def analyze_experiment(model,experiment):
   return result
 
 def standard_model():
-  length     = Trial(0,0.20,0.001)
-  stim_bas   = SineBasisGenerator(2.5,4).generate(length)
-  spike_bas  = SineBasisGenerator(7, 10).generate(length)
+  length     = Trial(0.0,0.2,0.001)
+  stim_bas   = SineBasisGenerator(25.5,1, 4).generate(length)
+  spike_bas  = SineBasisGenerator(70, 1, 10).generate(length)
+  spike_bas.plot()
   model      = SimpleModel(stim_bas, spike_bas)
   return model
 

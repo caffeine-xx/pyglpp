@@ -97,6 +97,10 @@ class Signal:
       return signals.AnalogSignal(self.signal, **self.trial.to_hash())
     return signals.AnalogSignalList(self.signal, range(self.dims()),  **self.trial.to_hash())
 
+  def plot(self):
+    from matplotlib import pylab
+    [pylab.plot(x) for x in atleast_2d(self.signal)]
+
 class SparseBinarySignal:
 
   def __init__(self, trial, signal, multi=False):
@@ -175,20 +179,31 @@ class GaussianNoiseGenerator(SignalGenerator):
       trial.length()))
     return Signal(trial, noise)
 
+class SineWaveGenerator(SignalGenerator):
+  def __init__(self, amplitude=1.0, phase=0.0, dim=1):
+    self.amplitude = amplitude
+    self.phase     = phase
+    self.dim       = dim
+
+  def generate(self, trial):
+    signal = self.amplitude * sin(trial.range()-self.phase*6.28)
+    return Signal(trial, signal)
+
 class SineBasisGenerator(SignalGenerator):
   ''' Creates sinusoidal bases as described in:
       Pillow et al., Nature 2009, Supplemental Methods '''
-  def __init__(self, a=7, c=1.0):
+  def __init__(self, a=7, c=1.0, dim=1):
     ''' a - Parameter determining "width" of curves
         c - Parameter determining translation of curves '''
     self.a = a
     self.c = c
+    self.dim = dim
 
-  def generate(self, trial, dim=1):
+  def generate(self, trial):
     phi = lambda j: (j+0.001) * pi / (2)
-    dis = lambda t: self.a * log(t + self.c)
-    domain = lambda j,t: dis(t) > phi(j) - pi and dis(t) < phi(j) + pi
+    dis = vectorize(lambda t: self.a * log(t + self.c))
+    domain = vectorize(lambda j,t: dis(t) > (phi(j) - pi) and dis(t) < (phi(j) + pi))
     basis  = vectorize(lambda j,t: domain(j,t) * 0.5 * (1 + cos(dis(t) - phi(j))))
-    result = array([basis(i, trial.range()) for i in range(dim)])
+    result = array([basis(i, trial.range()) for i in range(self.dim)])
     return Signal(trial, result)
 

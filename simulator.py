@@ -26,7 +26,7 @@ class Simulator:
     'neurons':{'N':200,         'Ni': 80,
                'threshold':     'v > 30.0*mV',
                'reset':         'v = -65.0*mV;'+
-                                'w += 12.0*mV'},
+                                'w += 8.0*mV'},
     'connect':{'weight':1.0*nS, 'sparseness':0.05,
                'state':'ge'                 },
     'inhibit':{'weight':1.0*nS, 'sparseness':0.05,
