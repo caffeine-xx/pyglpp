@@ -2,6 +2,7 @@ import math as m
 import numpy as np
 import scipy.ndimage as nd
 import scipy.optimize as opt
+import scipy.stats as st
 from memoize import Memoize
 
 def run_bases(bases, data):
@@ -110,7 +111,7 @@ class MultiNeuron(LikelihoodModel):
         I[i,:] += res*s
       I[i,:] += Mu[i]
     return I
-  
+
   def logL(self, K, H, Mu):
     I = self.logI(K,H,Mu)
     t1 = 0
