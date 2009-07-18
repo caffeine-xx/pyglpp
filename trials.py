@@ -39,11 +39,12 @@ def one_neuron(prefix,*args):
             'connect': conn, 'model': mode,
             'record': reco, 'inputs': inpu },sign) 
 
-def random_net(prefix,N=200,lam=1.0, pi=0.1, rs=0.02):
+def random_net(prefix,N=200,lam=1.0, pi=0.1, rs=0.02, inh=0.2):
   N = int(N)
-  lam,pi,rs = map(float, (lam, pi,rs))
+  lam,pi,rs,inh = map(float, (lam, pi,rs,inh))
+  Ni = int(0.2 * N)
 
-  weight = randomly_switch(taur_connector(N,N,lam),rs)*(0.8+random.rand(N,N))*nS
+  weight = randomly_switch(taur_connector(N-Ni,N-Ni,lam),rs)*(0.8+random.rand(N-Ni,N-Ni))*nS
   print "mean conn strength:",weight.sum(0).mean()
 
   from matplotlib import pylab
@@ -52,10 +53,10 @@ def random_net(prefix,N=200,lam=1.0, pi=0.1, rs=0.02):
   neur = {'N':N, 'Ni':int(0.2 * N)}
   conn = {'weight':weight, 'delay':True, 'max_delay':10.0*ms}
   inpu = {'sparseness': pi}
-  inhi = {'sparseness': 0.05}
+  inhi = {'sparseness': inh}
 
-  time = Trial(0.0,2.0,0.001)
-  sign = GaussianNoiseGenerator(4.8,1.0,10).generate(time)
+  time = Trial(0.0,0.1,0.001)
+  sign = GaussianNoiseGenerator(55.0,1.0,10).generate(time)
   return ({'neurons':neur, 'connect': conn, 'inhibit':inhi, 'inputs':inpu}, sign)
 
 def randomly_switch(W,p=0.01):
