@@ -1,8 +1,66 @@
+import numpy.random as ra
 from brian import *
 from brian.library.IF import *
 from numpy import *
 from signals import *
 from result import *
+from inference import run_bases
+
+@vectorize
+def poisson(lam):
+  return ra.poisson(lam,1)>0
+
+class LNPSimulator:
+  ''' Simulates a set of LNPoisson neurons given a 
+      set of parameters '''
+
+  def __init__(self, spike_basis, stim_basis, N, K, H, Mu):
+    self.K,self.H,self.Mu = K,H,Mu
+    self.spike_basis = atleast_2d(spike_basis)
+    self.tau_sp      = self.spike_basis.shape[1]
+    self.stim_basis  = atleast_2d(stim_basis)
+    self.tau_st      = self.stim_basis.shape[1]
+    self.N           = N
+    self. params = {
+      'K': K, 'H':H, 'Mu':Mu,
+      'Xb':stim_basis, 'Yb':spike_basis,
+      'N':N
+    } 
+
+  def logI(self, K, H, Mu, bsp, bst):
+    ''' Calculates log intensity for a single value '''
+    I = zeros(self.N,dtype='float64')
+    for i in xrange(self.N):
+      res1, s1  = ma.average(bsp,axis=1,weights=H[i,:,:],returned=True)
+      res2, s2  = ma.average(bst,axis=1,weights=K[i,:,:],returned=True)
+      I[i] += sum(res1*s1)+sum(res2*s2)
+      I[i] += Mu[i]
+    return I
+
+  def run(self, signal):
+
+    (K,H,Mu) = (self.K,self.H,self.Mu)
+    trial  = signal.trial
+    stims  = signal.signal
+    bst    = run_bases(self.stim_basis, stims)
+    spikes = zeros((self.N,trial.length()))
+    lams   = zeros((self.N,trial.length()))
+    spwin  = lambda x: max(0,x-self.tau_sp)
+    stwin  = lambda x: max(0,x-self.tau_st)
+    raster = []
+
+    for t in xrange(1,trial.length()):
+      bsp         = run_bases(self.spike_basis,spikes[:,spwin(t):t])
+      lams[:,t]   = self.logI(K,H,Mu,bsp[:,-1,:],bst[:,t,:])
+      spikes[:,t] = poisson(exp(lams[:,t]))
+      spiked      = flatnonzero(spikes[:,t])
+      raster      = raster + zip(spiked, [trial.bin_to_time(t)]*len(spiked))
+
+    return self.result(signal, lams, raster)
+
+  def result(self, signal, lams, spikes):
+    params = self.params
+    return Result(self.params, signal, [], spikes, {'lambda': lams})
 
 class Simulator:
   ''' Wrapper for the Brian simulator '''

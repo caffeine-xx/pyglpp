@@ -40,9 +40,6 @@ def transfer_entropy(ts1, ts2, l=1, bins=10):
 
   lag1,  bins1   = pdf_1d(ts1,bins=bins)
   lag2,  bins2   = pdf_1d(ts2,bins=bins)
-  
-  print lag1.F
-  print lag2.F
 
   joint, jedges  = pdf_nd([ts1,  lts1, lts2], bins=[bins1,bins1,bins2])
   lagged,ledges  = pdf_nd([lts1, lts2], bins=[bins1,bins2])

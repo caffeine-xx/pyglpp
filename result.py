@@ -30,13 +30,15 @@ class Result:
     self.raster(self.input, label='input')
     pyplot.subplot(212)
     self.raster(self.output, label='output')
+    pyplot.figure()
     for n,k in enumerate(self.monitors):
-      pyplot.subplot(int(len(self.monitors)*100 + 10 + n))
-      pyplot.figure()
-      [pyplot.plot(i) for i in self.monitors[k]]
+      for i,j in enumerate(self.monitors[k]):
+        pyplot.subplot(int(len(self.monitors)*100 + 10*n + i + 111))
+        pyplot.plot(j)
     pyplot.show()
 
   def raster(self, train, **args):
+    if len(train)==0: return None
     ids = zeros(len(train))
     tim = zeros(len(train))
     for k,(i,t) in enumerate(train):
