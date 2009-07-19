@@ -8,16 +8,15 @@ def mutual_information(data1, data2):
   mutinf = np.zeros((len(data1),len(data2)))
   for ii,i in enumerate(data1):
     for jj,j in enumerate(data2):
-      pdi = pdf_1d(i)
-      pdj = pdf_1d(j)
-      pdc = pdf_2d(i,j)
+      pdi = pdf_1d(i)[0]
+      pdj = pdf_1d(j)[0]
+      pdc = pdf_nd([i,j])[0]
       mutinf[ii,jj] = calc(pdi.entropy(),pdj.entropy(),pdc.entropy())
   return mutinf
 
 def pdf_1d(i,bins=4):
   ihist, ibins = np.histogram(i, normed=True,bins=bins)
-  ivals        = range(len(ihist))
-  ipdf         = st.rv_discrete(name="i",values=[ivals,ihist])
+  ipdf         = st.rv_discrete(name="i",values=[range(bins),ihist])
   return ipdf,ibins
 
 def pdf_nd(arr, bins=4, name="nd"):
@@ -33,8 +32,7 @@ def pdf_nd(arr, bins=4, name="nd"):
   pdf = st.rv_discrete(name=name,values=[values,histnd])
   return (pdf,edges)
 
-
-def transfer_entropy(ts1, ts2, l=1, bins=4):
+def transfer_entropy(ts1, ts2, l=1, bins=10):
   ''' Calculate transfer entropy between two timeseries, with lag l '''
   lts1  = ts1[:-l]
   lts2  = ts2[:-l]
@@ -42,6 +40,9 @@ def transfer_entropy(ts1, ts2, l=1, bins=4):
 
   lag1,  bins1   = pdf_1d(ts1,bins=bins)
   lag2,  bins2   = pdf_1d(ts2,bins=bins)
+  
+  print lag1.F
+  print lag2.F
 
   joint, jedges  = pdf_nd([ts1,  lts1, lts2], bins=[bins1,bins1,bins2])
   lagged,ledges  = pdf_nd([lts1, lts2], bins=[bins1,bins2])
@@ -50,12 +51,20 @@ def transfer_entropy(ts1, ts2, l=1, bins=4):
   idx2  = lambda i,j:   i*bins + j
   idx3  = lambda i,j,k: i*(bins**2) + j*bins + k
 
-  jdist = np.vectorize(lambda i,j,k: joint.F[idx3(i,j,k)])
-  numer = np.vectorize(lambda i,j,k: jdist(i,j,k) / lagged.F[idx2(j,k)]) 
-  denom = np.vectorize(lambda i,j:   auto.F[idx2(i,j)] / lag1.F[j])
-  ti    = np.vectorize(lambda i,j,k: jdist(i,j,k) * np.log(numer(i,j,k) / denom(i,j)))
+  jdist = lambda i,j,k: joint.F[idx3(i,j,k)]
+  numer = lambda i,j,k: zdiv(jdist(i,j,k) , lagged.F[idx2(j,k)])
+  denom = lambda i,j:   zdiv(auto.F[idx2(i,j)] , lag1.F[j])
+  trans = np.vectorize(lambda i,j,k: jdist(i,j,k) * zlog(zdiv(numer(i,j,k) , denom(i,j))))
+
   args  = np.array([(i,j,k) for i in xrange(bins) for j in xrange(bins) for k in xrange(bins)]).T
-  sum   = ti(args[0],args[1],args[2])
+  sum   = trans(args[0],args[1],args[2])
 
   return sum.sum()
- 
+
+def zlog(h):
+  if h==0: return 0
+  else: return np.log(h)
+
+def zdiv(h1,h2):
+  if h2==0: return 0
+  else: return np.divide(h1,h2)
