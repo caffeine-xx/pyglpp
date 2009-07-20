@@ -56,11 +56,7 @@ class LNPSimulator:
       spiked      = flatnonzero(spikes[:,t])
       raster      = raster + zip(spiked, [trial.bin_to_time(t)]*len(spiked))
 
-    return self.result(signal, lams, raster)
-
-  def result(self, signal, lams, spikes):
-    params = self.params
-    return Result(self.params, signal, [], spikes, {'lambda': lams})
+    return Result(self.params, signal, [], raster, {'lambda': lams})
 
 class Simulator:
   ''' Wrapper for the Brian simulator '''

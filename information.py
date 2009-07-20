@@ -32,7 +32,7 @@ def pdf_nd(arr, bins=4, name="nd"):
   pdf = st.rv_discrete(name=name,values=[values,histnd])
   return (pdf,edges)
 
-def transfer_entropy(ts1, ts2, l=1, bins=10):
+def transfer_entropy(ts1, ts2, l=1, bins=5):
   ''' Calculate transfer entropy between two timeseries, with lag l '''
   lts1  = ts1[:-l]
   lts2  = ts2[:-l]
@@ -58,10 +58,12 @@ def transfer_entropy(ts1, ts2, l=1, bins=10):
 
   return sum.sum()
 
+@vectorize
 def zlog(h):
   if h==0: return 0
   else: return np.log(h)
 
+@vectorize
 def zdiv(h1,h2):
   if h2==0: return 0
   else: return np.divide(h1,h2)

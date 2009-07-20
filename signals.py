@@ -25,10 +25,10 @@ class Trial:
 
   def time_to_bin(self, t):
     ''' Transforms a time interval into the nearest bin '''
-    return int((float(t)-self.t_start)/self.dt)
+    return vectorize(lambda t:int((float(t)-self.t_start)/self.dt))(t)
   
   def bin_to_time(self, b):
-    return self.t_start + float(b)*self.dt
+    return vectorize(lambda b:self.t_start + float(b)*self.dt)(b)
 
   def duration(self):
     return self.t_stop - self.t_start

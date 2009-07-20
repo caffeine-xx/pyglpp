@@ -24,7 +24,7 @@ class Result:
   def plot(self):
     pyplot.figure()
     time = self.signal.trial.range()
-    pyplot.plot(time, self.signal()[0], label='signal')
+    [pyplot.plot(time, k) for k in self.signal()]
     pyplot.figure()
     pyplot.subplot(211)
     self.raster(self.input, label='input')
@@ -32,9 +32,8 @@ class Result:
     self.raster(self.output, label='output')
     pyplot.figure()
     for n,k in enumerate(self.monitors):
-      for i,j in enumerate(self.monitors[k]):
-        pyplot.subplot(int(len(self.monitors)*100 + 10*n + i + 111))
-        pyplot.plot(j)
+        pyplot.subplot(len(self.monitors), 1, n+1)
+        [pyplot.plot(x) for x in self.monitors[k]]
     pyplot.show()
 
   def raster(self, train, **args):
@@ -62,7 +61,6 @@ class NeuroToolsResult(Result):
     self.monitors = {}
     for k in res.monitors:
       self.monitors[k] = signals.AnalogSignalList(res.monitors[k]/ms, ids, **res.signal.trial.to_hash())
-
 
   def graph(self):
     for k in self.monitors:

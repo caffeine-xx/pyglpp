@@ -4,6 +4,7 @@ import scipy.ndimage as nd
 import scipy.optimize as opt
 import scipy.stats as st
 from memoize import Memoize
+from signals import *
 
 def run_bases(bases, data):
   """ Correlates a dataset with a set of bases.
@@ -50,12 +51,15 @@ class LikelihoodModel:
       self.spikes[i,s]=1
 
 
-  
-  
+
+default_basis_length = Trial(0,2*pi,dt=pi/16)
+default_spike_basis  = SineBasisGenerator(7,dim=5).generate(default_basis_length)
+default_stim_basis   = SineBasisGenerator(7,dim=5).generate(default_basis_length)
+
 class MultiNeuron(LikelihoodModel):
   """ Multi-neuron Poisson model with user-specified bases"""
-
-  def __init__(self, stim_basis, spike_basis):
+  def __init__(self, stim_basis=default_stim_basis.signal, 
+                     spike_basis=default_spike_basis.signal):
     self.stim_basis  = stim_basis
     self.spike_basis = spike_basis
     self.spike_b     = spike_basis.shape[0]
@@ -92,7 +96,7 @@ class MultiNeuron(LikelihoodModel):
     Ksize = (self.N, self.Nx, self.stim_b)
     Hsize = (self.N, self.N, self.spike_b)
     Msize = (self.N)
-    return (np.random.random(Ksize), np.random.random(Hsize), np.random.random(Msize))
+    return (0.01*np.random.standard_normal(Ksize), 0.01*np.random.standard_normal(Hsize), 0.01*np.random.standard_normal(Msize))
 
   def zero_args(self):
     Ksize = (self.N, self.Nx, self.stim_b)
@@ -189,7 +193,8 @@ class FixedConnections(MultiNeuron):
 class SimpleModel(MultiNeuron):
   ''' Model using Signal api: dirty hack wrapper, should
     write a cleaner version. '''
-  def __init__(self, in_filter, out_filter):
+  def __init__(self, in_filter=default_stim_basis, 
+                     out_filter=default_spike_basis):
     self.in_filter = in_filter
     self.out_filter = out_filter
     MultiNeuron.__init__(self, in_filter.signal, out_filter.signal)
@@ -223,5 +228,8 @@ class MLEstimator(LikelihoodModel):
 
   def maximize(self,*a):
     theta, args = self.model.pack(*a)
-    theta = opt.fmin_cg(self.logL, theta, self.logL_grad,  args=args, maxiter=1000, gtol=1.0e-03)
+    theta = opt.fmin_cg(self.logL, theta, self.logL_grad,  args=args, maxiter=1000, gtol=1.0e-03, callback=self.callback)
     return self.model.unpack(theta, args)
+
+  def callback(self,x):
+    print ".",

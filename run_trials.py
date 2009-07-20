@@ -1,8 +1,6 @@
 import sys
-
-import simulator as s
 import trials
-from utils import *
+from utils import print_timing
 
 @print_timing
 def run_trial(trial, prefix="experiment", *args):
@@ -12,9 +10,7 @@ def run_trial(trial, prefix="experiment", *args):
     - prefix: file in which the results should be stored.
     - *args: arguments to the trial function '''
   reload(trials)
-  (parameters, signal) = getattr(trials, trial)(prefix,*args)
-  simu = s.Simulator(**parameters)
-  resu = simu.run(signal)
+  resu = getattr(trials, trial)(*args)
   resu.write_to_file("results/%s.pickle" % prefix)
   return resu
 
@@ -27,4 +23,7 @@ if(__name__=="__main__"):
   print "=== Running %s -> %s" % (trial,prefix)
   print "Args: ", args
   resu = run_trial(trial,prefix,*args)
-  resu.plot()
+  try:
+    resu.plot()
+  except:
+    print "Couldn't plot: "
