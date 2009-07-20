@@ -26,7 +26,8 @@ def pdf_nd(arr, bins=4, name="nd"):
       Returns: (pdf, edges) where:
         - pdf: discrete PDF (indexed by bins)
         - edges: bin edges for discrete PDF values '''
-  histnd,edges = np.histogramdd(arr,normed=True,bins=bins)
+  histnd,edges = np.histogramdd(arr,bins=bins)
+  histnd = histnd / histnd.sum()
   values = np.array(range(histnd.size))
   values.reshape(histnd.shape)
   pdf = st.rv_discrete(name=name,values=[values,histnd])
