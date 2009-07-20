@@ -28,7 +28,9 @@ def two_neuron(pw=0, pi=0):
   resu = simu.run(sign) 
   return resu
 
-def one_neuron(*args):
+def one_neuron(t_stop=1.0):
+  t_stop = float(t_stop)
+
   neur = {'N': 1, 'Ni': 0}
   conn = {'weight':0.0*nS}
   inhi = {'weight':0.0*nS}
@@ -36,7 +38,7 @@ def one_neuron(*args):
   mode = {'C_m': 2.0*pF}
   reco = {'v': True, 'I': True}
 
-  time = Trial(t_stop=1.0)
+  time = Trial(t_stop=t_stop)
   sign = GaussianNoiseGenerator(20.0).generate(time)
   
   simu = s.Simulator(neurons= neur, inhibit=inhi, 
