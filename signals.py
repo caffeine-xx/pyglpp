@@ -201,7 +201,7 @@ class SineBasisGenerator(SignalGenerator):
     self.c = c
     self.dim = dim
 
-  def generate(self, trial):
+  def generate(self, trial=Trial(0,2*pi,pi/16)):
     phi = lambda j: (j+0.001) * pi / (2)
     dis = vectorize(lambda t: self.a * log(t + self.c))
     domain = vectorize(lambda j,t: dis(t) > (phi(j) - pi) and dis(t) < (phi(j) + pi))
