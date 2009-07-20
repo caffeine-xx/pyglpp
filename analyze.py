@@ -2,6 +2,7 @@ import result
 from signals import *
 from inference import *
 from scipy import io
+from utils import print_timing
 
 def run_analysis(prefix,  model=False):
   ''' Analyzes a particular trial and saves the result in
@@ -12,6 +13,7 @@ def run_analysis(prefix,  model=False):
   io.savemat(prefix+".mat",inferred)
   return inferred
 
+@print_timing
 def analyze_experiment(model,experiment):
   ''' Performs ML inference on the given model,
   and returns the resulting parameters '''
@@ -27,7 +29,7 @@ def analyze_experiment(model,experiment):
   maximized = estimator.maximize(*initial)
   intensity = model.logI(*maximized)
   result    = dict(zip(('K','H','Mu','T','logI','X','Y','Yr','Xb','Yb'),
-              maximized + (trial.range(),intensity,input,output().signal,
+              maximized + (trial.range(),intensity,input.signal,output(),
                            array(experiment.output),model.stim_basis,
                            model.spike_basis)))
   return result
