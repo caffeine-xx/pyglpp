@@ -1,3 +1,4 @@
+from matplotlib import pylab
 from numpy import *
 from brian import *
 from brian.library.IF import *
@@ -68,21 +69,39 @@ def random_net(N=200,lam=1.0, pi=0.1, rs=0.02, inh=0.2):
   resu = simu.run(signal)
   return resu
 
-def random_lnp(N=20, t=0.1):
+def random_lnp(N=20, t=0.1, lam=2.0,rs=0.02):
 
-  N,t = int(N),float(t)
+  N,t,lam,rs  = int(N),float(t),float(lam),float(rs)
   dX,dY,dS = 5,5,5
+  Ni       = int(0.2*N)
+  Sparse   = 0.2
 
-  trial = Trial(t_start=0.0, t_stop=t, dt=0.001)
+  trial  = Trial(t_start=0.0, t_stop=t, dt=0.001)
   signal = GaussianNoiseGenerator(15.0, 4.0, dS).generate(trial)
-
-  Xb = SineBasisGenerator(7,1,dX).generate(Trial(0.0,1.0,0.1)).signal
-  Yb = SineBasisGenerator(7,1,dY).generate(Trial(0.0,1.0,0.1)).signal
-
-  K = random.randn(N,dS,dX)
-  H = random.randn(N,N,dY)
-  M = random.randn(N)*2+15
   
+  Xb = SineBasisGenerator(dim=dX).generate().signal
+  Yb = SineBasisGenerator(dim=dY).generate().signal
+  
+  K = zeros((N,dS,dX))
+  H = zeros((N,N,dY))
+  M = random.randn(N)*2+10
+  
+  weight = randomly_switch(taur_connector(N,N,lam),rs)
+
+  for i in xrange(N):
+    for j in xrange(dS):
+      syn = array([10.0+random.randn()*2, -5.0+random.randn(), 1.0+random.randn()*0.3, 1.0+random.randn()*0.3, 1.0+random.randn()*0.3])
+      if (random.rand()<Sparse): K[i,j,:] = syn
+    for j in xrange(Ni):
+      H[i,j,:] = (random.rand()<Sparse) * (-1.0*syn)
+    for j in xrange(Ni,N):
+      syn = array([10.0+random.randn()*2, -5.0+random.randn(), 1.0+random.randn()*0.3, 1.0+random.randn()*0.3, 1.0+random.randn()*0.3])
+      H[i,j,:] = weight[i,j]*syn  
+  
+  w2 = average(H,axis=2)
+  pylab.matshow(weight)
+  pylab.matshow(w2)
+
   simu = s.LNPSimulator(Yb,Xb,N,K,H,M)
   print simu.params
   resu = simu.run(signal)
