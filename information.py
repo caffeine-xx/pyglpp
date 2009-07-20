@@ -39,19 +39,19 @@ def transfer_entropy(ts1, ts2, l=1, bins=5):
   lts2  = ts2[:-l]
   ts1   = ts1[l:]
 
-  lag1,  bins1   = pdf_1d(ts1,bins=bins)
-  lag2,  bins2   = pdf_1d(ts2,bins=bins)
+  lag1,  bins1   = pdf_1d(lts1,bins=bins)
+  lag2,  bins2   = pdf_1d(lts2,bins=bins)
 
   joint, jedges  = pdf_nd([ts1,  lts1, lts2], bins=[bins1,bins1,bins2])
   lagged,ledges  = pdf_nd([lts1, lts2], bins=[bins1,bins2])
-  auto,  aedges  = pdf_nd([ts1,  lts1], bins=[bins1,bins2])
+  auto,  aedges  = pdf_nd([ts1,  lts1], bins=[bins1,bins1])
 
   idx2  = lambda i,j:   i*bins + j
   idx3  = lambda i,j,k: i*(bins**2) + j*bins + k
 
-  jdist = lambda i,j,k: joint.F[idx3(i,j,k)]
-  numer = lambda i,j,k: zdiv(jdist(i,j,k) , lagged.F[idx2(j,k)])
-  denom = lambda i,j:   zdiv(auto.F[idx2(i,j)] , lag1.F[j])
+  jdist = lambda i,j,k: joint.F[idx3(i,j,k)]                     # P(i(t), i(t-1), j(t-1))
+  numer = lambda i,j,k: zdiv(jdist(i,j,k) , lagged.F[idx2(j,k)]) # P(i(t) | i(t-1), j(t-1))
+  denom = lambda i,j:   zdiv(auto.F[idx2(i,j)] , lag1.F[j])      # P(i(t) | i(t-1))
   trans = np.vectorize(lambda i,j,k: jdist(i,j,k) * zlog(zdiv(numer(i,j,k) , denom(i,j))))
 
   args  = np.array([(i,j,k) for i in xrange(bins) for j in xrange(bins) for k in xrange(bins)]).T
