@@ -26,8 +26,10 @@ def analyze_experiment(model,experiment):
   estimator = MLEstimator(model)
   maximized = estimator.maximize(*initial)
   intensity = model.logI(*maximized)
-  result    = dict(zip(('K','H','Mu','logI'),maximized + (intensity,)))
-
+  result    = dict(zip(('K','H','Mu','T','logI','X','Y','Yr','Xb','Yb'),
+              maximized + (trial.range(),intensity,input,output().signal,
+                           array(experiment.output),model.stim_basis,
+                           model.spike_basis)))
   return result
 
 def standard_model():
