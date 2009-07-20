@@ -58,12 +58,12 @@ def transfer_entropy(ts1, ts2, l=1, bins=5):
 
   return sum.sum()
 
-@vectorize
+@np.vectorize
 def zlog(h):
   if h==0: return 0
   else: return np.log(h)
 
-@vectorize
+@np.vectorize
 def zdiv(h1,h2):
   if h2==0: return 0
   else: return np.divide(h1,h2)
