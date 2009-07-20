@@ -1,8 +1,10 @@
 import result
+import numpy as np
 from signals import *
 from inference import *
 from scipy import io
 from utils import print_timing
+from information import *
 
 def run_analysis(prefix,  model=False):
   ''' Analyzes a particular trial and saves the result in
@@ -10,6 +12,7 @@ def run_analysis(prefix,  model=False):
   if not model: model = standard_model()
   experiment = result.load_result(prefix+".pickle")
   inferred   = analyze_experiment(model, experiment)
+  inferred.update(information_analysis(inferred))
   io.savemat(prefix+".mat",inferred)
   return inferred
 
@@ -21,9 +24,7 @@ def analyze_experiment(model,experiment):
   trial = experiment.signal.trial
   input = experiment.signal
   output = SparseBinarySignal(trial,experiment.output)
-
   model.set_data(trial,input,output)
-  
   initial   = model.random_args()
   estimator = MLEstimator(model)
   maximized = estimator.maximize(*initial)
@@ -34,6 +35,18 @@ def analyze_experiment(model,experiment):
                            model.spike_basis)))
   return result
 
+@print_timing
+def information_analysis(dat):
+  ''' Calculates mutual info and transfer entropy between:
+      - Each pair of neurons (in each direction)
+      - The input signal and each neuron
+      The neuron signal analyzed is the log-Poisson intensity'''
+  bins = 10
+  MI = mutual_information(dat['logI'],dat['logI'],bins=bins)
+  TE = np.array(
+    [[transfer_entropy(x,y,bins=bins) for y in dat['X']] for x in dat['logI']])
+  return {'MI':MI, 'TE':TE}
+
 def standard_model():
   model      = SimpleModel()
   return model
@@ -42,7 +55,6 @@ if(__name__=="__main__"):
   import sys
 
   prefix = sys.argv[1]
-
   prefs = ["results/"+prefix] 
   id = 0
   end_id = 0
