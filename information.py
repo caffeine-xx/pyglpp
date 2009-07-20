@@ -3,7 +3,7 @@ import scipy.stats as st
 
 # mutual information and transfer entropy
 
-def mutual_information(data1, data2):
+def mutual_information(data1, data2, bins=10):
   ''' Calulates a matrix of pairwise mutual informations for two
       matrices.  Parameters:
         - data1: a PxN1 matrix
@@ -13,9 +13,9 @@ def mutual_information(data1, data2):
   mutinf = np.zeros((len(data1),len(data2)))
   for ii,i in enumerate(data1):
     for jj,j in enumerate(data2):
-      pdi = pdf_1d(i)[0]
-      pdj = pdf_1d(j)[0]
-      pdc = pdf_nd([i,j])[0]
+      pdi = pdf_1d(i,bins=bins)[0]
+      pdj = pdf_1d(j,bins=bins)[0]
+      pdc = pdf_nd([i,j],bins=bins)[0]
       mutinf[ii,jj] = calc(pdi.entropy(),pdj.entropy(),pdc.entropy())
   return mutinf
 
@@ -38,7 +38,7 @@ def pdf_nd(arr, bins=4, name="nd"):
   pdf = st.rv_discrete(name=name,values=[values,histnd])
   return (pdf,edges)
 
-def transfer_entropy(ts1, ts2, l=1, bins=5):
+def transfer_entropy(ts1, ts2, l=1, bins=10):
   ''' Calculate transfer entropy between two timeseries, with lag l '''
   lts1  = ts1[:-l]
   lts2  = ts2[:-l]
