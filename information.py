@@ -4,6 +4,11 @@ import scipy.stats as st
 # mutual information and transfer entropy
 
 def mutual_information(data1, data2):
+  ''' Calulates a matrix of pairwise mutual informations for two
+      matrices.  Parameters:
+        - data1: a PxN1 matrix
+        - data2: a QxN2 matrix
+      Returns: a PxQ matrix of mutual information (in nats) '''
   calc = lambda e1,e2,ec: e1+e2-ec
   mutinf = np.zeros((len(data1),len(data2)))
   for ii,i in enumerate(data1):
