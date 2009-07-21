@@ -32,11 +32,60 @@ def pdf_nd(arr, bins=4, name="nd"):
         - pdf: discrete PDF (indexed by bins)
         - edges: bin edges for discrete PDF values '''
   histnd,edges = np.histogramdd(arr,bins=bins)
-  histnd = histnd / histnd.sum()
+  histnd = normalize(histnd)
   values = np.array(range(histnd.size))
   values.reshape(histnd.shape)
   pdf = st.rv_discrete(name=name,values=[values,histnd])
   return (pdf,edges)
+
+def marginalize(hist, axis=0):
+  return np.sum(hist, axis=axis)
+
+def normalize(hist,axis=None):
+  return hist / hist.sum(axis=axis)
+
+def clean(hist):
+  hist[np.isnan(hist)]=0
+  hist[np.isinf(hist)]=0
+  return hist
+
+def h2pdf(hist,axis=None):
+  return clean(normalize(hist,axis=axis))
+
+def multi_lag(x, L=1):
+  ''' Generates clipped, lagged timeseries from the original x.
+  Returns a tuple containing:
+    - newest: unlagged timeseries 
+    - lagged: list of L timeseries, where lagged[i] is
+              L-i timesteps lag '''
+  newest = np.roll(x,-L)[:-L]
+  lagged = [np.roll(x,-l)[:-L] for l in range(L)]
+  return newest,lagged
+
+def multi_marginalize(x, axes=[0]):
+  ''' Marginalizes along multiple axes'''
+  result = x
+  ax = axes
+  ax.reverse()
+  for a in ax:
+    result = marginalize(result, a)
+  return result
+
+def multi_transfer_entropy(ts1,ts2,lag=1,bins=10):
+  ts1,lts1  = multi_lag(ts1,lag)
+  ts2,lts2  = multi_lag(ts2,lag)
+  lts2_ax   = range(lag+1,2*lag+1)
+
+  lag1   = h2pdf(np.histogramdd(lts1,bins=bins)[0])
+  joint  = h2pdf(np.histogramdd([ts1]+lts1+lts2, bins=bins)[0])
+  lagged = h2pdf(marginalize(joint, 0))
+  auto   = h2pdf(multi_marginalize(joint, lts2_ax))
+  jcond  = h2pdf(np.true_divide(joint , lagged),axis=0)
+  acond  = h2pdf(np.true_divide(auto , lag1),axis=0)
+
+  logratio  = clean(np.log(np.true_divide(jcond , acond)))
+  transfer = clean(joint * logratio)
+  return transfer.sum()
 
 def transfer_entropy(ts1, ts2, l=1, bins=10):
   ''' Calculate transfer entropy between two timeseries, with lag l '''
@@ -44,32 +93,14 @@ def transfer_entropy(ts1, ts2, l=1, bins=10):
   lts2  = ts2[:-l]
   ts1   = ts1[l:]
 
-  lag1,  bins1   = pdf_1d(ts1,bins=bins)
-  lag2,  bins2   = pdf_1d(ts2,bins=bins)
+  lag1   = h2pdf(np.histogramdd([lts1],bins=bins)[0])
+  joint  = h2pdf(np.histogramdd([ts1,  lts1, lts2], bins=bins)[0])
+  lagged = h2pdf(marginalize(joint, 0))
+  auto   = h2pdf(marginalize(joint, 2))
+  jcond  = h2pdf(np.true_divide(joint , lagged),axis=0)
+  acond  = h2pdf(np.true_divide(auto , lag1),axis=0)
 
-  joint, jedges  = pdf_nd([ts1,  lts1, lts2], bins=[bins1,bins1,bins2])
-  lagged,ledges  = pdf_nd([lts1, lts2], bins=[bins1,bins2])
-  auto,  aedges  = pdf_nd([ts1,  lts1], bins=[bins1,bins2])
+  logratio  = clean(np.log(np.true_divide(jcond , acond)))
+  transfer = clean(joint * logratio)
+  return transfer.sum()
 
-  idx2  = lambda i,j:   i*bins + j
-  idx3  = lambda i,j,k: i*(bins**2) + j*bins + k
-
-  jdist = lambda i,j,k: joint.F[idx3(i,j,k)]
-  numer = lambda i,j,k: zdiv(jdist(i,j,k) , lagged.F[idx2(j,k)])
-  denom = lambda i,j:   zdiv(auto.F[idx2(i,j)] , lag1.F[j])
-  trans = np.vectorize(lambda i,j,k: jdist(i,j,k) * zlog(zdiv(numer(i,j,k) , denom(i,j))))
-
-  args  = np.array([(i,j,k) for i in xrange(bins) for j in xrange(bins) for k in xrange(bins)]).T
-  sum   = trans(args[0],args[1],args[2])
-
-  return sum.sum()
-
-@np.vectorize
-def zlog(h):
-  if h==0: return 0
-  else: return np.log(h)
-
-@np.vectorize
-def zdiv(h1,h2):
-  if h2==0: return 0
-  else: return np.divide(h1,h2)
