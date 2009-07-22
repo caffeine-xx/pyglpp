@@ -71,7 +71,7 @@ def multi_marginalize(x, axes=[0]):
     result = marginalize(result, a)
   return result
 
-def multi_transfer_entropy(ts1,ts2,lag=1,bins=10):
+def transfer_entropy(ts1,ts2,lag=1,bins=10):
   ts1,lts1  = multi_lag(ts1,lag)
   ts2,lts2  = multi_lag(ts2,lag)
   lts2_ax   = range(lag+1,2*lag+1)
@@ -80,23 +80,6 @@ def multi_transfer_entropy(ts1,ts2,lag=1,bins=10):
   joint  = h2pdf(np.histogramdd([ts1]+lts1+lts2, bins=bins)[0])
   lagged = h2pdf(marginalize(joint, 0))
   auto   = h2pdf(multi_marginalize(joint, lts2_ax))
-  jcond  = h2pdf(np.true_divide(joint , lagged),axis=0)
-  acond  = h2pdf(np.true_divide(auto , lag1),axis=0)
-
-  logratio  = clean(np.log(np.true_divide(jcond , acond)))
-  transfer = clean(joint * logratio)
-  return transfer.sum()
-
-def transfer_entropy(ts1, ts2, l=1, bins=10):
-  ''' Calculate transfer entropy between two timeseries, with lag l '''
-  lts1  = ts1[:-l]
-  lts2  = ts2[:-l]
-  ts1   = ts1[l:]
-
-  lag1   = h2pdf(np.histogramdd([lts1],bins=bins)[0])
-  joint  = h2pdf(np.histogramdd([ts1,  lts1, lts2], bins=bins)[0])
-  lagged = h2pdf(marginalize(joint, 0))
-  auto   = h2pdf(marginalize(joint, 2))
   jcond  = h2pdf(np.true_divide(joint , lagged),axis=0)
   acond  = h2pdf(np.true_divide(auto , lag1),axis=0)
 
