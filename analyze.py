@@ -42,10 +42,13 @@ def information_analysis(dat):
       - The input signal and each neuron
       The neuron signal analyzed is the log-Poisson intensity'''
   bins = 10
+  lag = 3
   MI = mutual_information(dat['logI'],dat['logI'],bins=bins)
-  TE = np.array(
-    [[transfer_entropy(x,y,bins=bins) for y in dat['X']] for x in dat['logI']])
-  return {'MI':MI, 'TE':TE}
+  TE_X = np.array([[transfer_entropy(x,y,lag=lag,bins=bins) 
+                    for y in dat['X']] for x in dat['logI']])
+  TE_I = np.array([[transfer_entropy(x,y,lag=lag,bins=bins)
+                    for y in dat['logI']] for x in dat['logI']])
+  return {'MI':MI, 'TE_X':TE_X, 'TE_I':TE_I}
 
 def standard_model():
   model      = SimpleModel()

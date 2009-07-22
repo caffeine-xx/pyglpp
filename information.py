@@ -16,7 +16,7 @@ def mutual_information(data1, data2, bins=10):
       pdi = pdf_1d(i,bins=bins)[0]
       pdj = pdf_1d(j,bins=bins)[0]
       pdc = pdf_nd([i,j],bins=bins)[0]
-      try:
+      try: # this is an incredibly ugly way to avoid a dumb typeError bug.
         print pdc.entropy()
       except:
         print pdc.entropy()
