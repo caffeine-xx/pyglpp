@@ -7,7 +7,7 @@ def matrix_to_graph(matrix):
   E = np.atleast_2d(matrix)
   for x in range(E.shape[0]):
     for y in range(E.shape[1]):
-      G.add_edge(x,y,E[x,y])
+      udo.add_edge(x,y,E[x,y])
   return G
 
 def draw_graph(G,savefile=None):
