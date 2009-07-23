@@ -4,13 +4,14 @@ from signals import *
 from inference import *
 from scipy import io
 from utils import print_timing
+from result import load_result
 from information import *
 
 def run_analysis(prefix,  model=False):
   ''' Analyzes a particular trial and saves the result in
       filters in prefix.mat (MATLAB-compatible) '''
   if not model: model = standard_model()
-  experiment = result.load_result(prefix+".pickle")
+  experiment = load_result(prefix+".pickle")
   inferred   = analyze_experiment(model, experiment)
   inferred.update(information_analysis(inferred))
   io.savemat(prefix+".mat",inferred)

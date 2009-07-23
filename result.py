@@ -74,3 +74,9 @@ class NeuroToolsResult(Result):
 def load_result(filename):
     return cPickle.Unpickler(file(filename, 'r')).load()
 
+if(__name__=="__main__"):
+  import sys
+  prefix = sys.argv[1]
+  res = load_result("results/%s.pickle" % prefix)
+  res.plot()
+

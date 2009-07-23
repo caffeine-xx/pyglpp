@@ -19,7 +19,7 @@ def two_neuron(pw=0, pi=0):
   conn = {'weight':weight*2, 'delay':True, 'max_delay':10*ms}
   inpu = {'weight':inputs,'sparseness':None}
   
-  time = Trial(t_stop=2.0)
+  time = Trial(t_stop=0.5)
   sign = GaussianNoiseGenerator(15.0, 2.0, 1).generate(time)
 
   simu = s.Simulator(neurons= neur, record=reco, 
@@ -61,9 +61,9 @@ def random_net(N=200,lam=1.0, pi=0.1, rs=0.02, inh=0.2):
   conn = {'weight':weight, 'delay':True, 'max_delay':10.0*ms}
   inpu = {'sparseness': pi}
   inhi = {'sparseness': inh}
-
+ 
   time = Trial(0.0,0.1,0.001)
-  sign = GaussianNoiseGenerator(55.0,1.0,10).generate(time)
+  sign = GaussianNoiseGenerator(20.0,1.0,10).generate(time)
   simu = s.Simulator(neurons=neur, connect=conn, inhibit=inhi, inputs=inpu)
   print simu.p
   resu = simu.run(signal)
@@ -75,28 +75,27 @@ def random_lnp(N=20, t=0.1, lam=2.0,rs=0.02):
   dX,dY,dS = 5,5,5
   Ni       = int(0.2*N)
   Sparse   = 0.2
+  variance = 2./N
+  mean     = 2.2/N
 
   trial  = Trial(t_start=0.0, t_stop=t, dt=0.001)
-  signal = GaussianNoiseGenerator(15.0, 4.0, dS).generate(trial)
+  signal = GaussianNoiseGenerator(1.0, 1.0, dS).generate(trial)
   
   Xb = SineBasisGenerator(dim=dX).generate().signal
   Yb = SineBasisGenerator(dim=dY).generate().signal
-  
-  K = zeros((N,dS,dX))
-  H = zeros((N,N,dY))
-  M = random.randn(N)*2+10
+
+  K = random.randn(N,dS,dX)*variance+mean
+  H = random.randn(N,N,dY)*variance+mean
+  M = random.randn(N)*0.5+1.4
   
   weight = randomly_switch(taur_connector(N,N,lam),rs)
+  weight[:,:Ni] = (random.rand(N,Ni)<Sparse)*-1.0
 
-  for i in xrange(N):
-    for j in xrange(dS):
-      syn = array([10.0+random.randn()*2, -5.0+random.randn(), 1.0+random.randn()*0.3, 1.0+random.randn()*0.3, 1.0+random.randn()*0.3])
-      if (random.rand()<Sparse): K[i,j,:] = syn
-    for j in xrange(Ni):
-      H[i,j,:] = (random.rand()<Sparse) * (-1.0*syn)
-    for j in xrange(Ni,N):
-      syn = array([10.0+random.randn()*2, -5.0+random.randn(), 1.0+random.randn()*0.3, 1.0+random.randn()*0.3, 1.0+random.randn()*0.3])
-      H[i,j,:] = weight[i,j]*syn  
+  for i in range(N): 
+    for k in range(dS):
+      K[i,k,:] = (random.rand() < Sparse) * K[i,k,:]
+    for j in range(N):
+      H[i,j,:] = H[i,j,:] * weight[i,j]
   
   w2 = average(H,axis=2)
   pylab.matshow(weight)

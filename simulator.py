@@ -8,7 +8,7 @@ from inference import run_bases
 
 @vectorize
 def poisson(lam):
-  return ra.poisson(lam,1)>0
+  return ra.poisson(max(0,lam),1)>0
 
 class LNPSimulator:
   ''' Simulates a set of LNPoisson neurons given a 
@@ -52,7 +52,7 @@ class LNPSimulator:
     for t in xrange(1,trial.length()):
       bsp         = run_bases(self.spike_basis,spikes[:,spwin(t):t])
       lams[:,t]   = self.logI(K,H,Mu,bsp[:,-1,:],bst[:,t,:])
-      spikes[:,t] = poisson(exp(lams[:,t]))
+      spikes[:,t] = poisson(exp(lams[:,t])*trial.dt)
       spiked      = flatnonzero(spikes[:,t])
       raster      = raster + zip(spiked, [trial.bin_to_time(t)]*len(spiked))
 
