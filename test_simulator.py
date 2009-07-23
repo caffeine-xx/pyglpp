@@ -8,7 +8,7 @@ reload(s)
 
 def test_lnp_simulator():
   trial = Trial(t_start=0,t_stop=4,dt=1)
-  stim  = array([[1,0,0,0]])
+  stim  = array([[1,3,5,7]])
   sign  = Signal(trial,stim)
 
   spike_basis = array([[2,1]])
@@ -21,7 +21,11 @@ def test_lnp_simulator():
   M = array([1,1]) # unit mean firing rates
   
   ps = s.LNPSimulator(spike_basis,stim_basis,N,K,H,M)
-  result = ps.run(sign)
+
+  bst2  = ps.rebase(stim_basis, stim)
+  assert bst.ravel()[-1] == bst2
+
+  resu = ps.run(sign)
   resu.write_to_file("results/lnp_sim_test.pickle")
 
 def test_lnp_big():
@@ -69,7 +73,7 @@ def weight_permutations():
   return (weight, input)
 
 if(__name__=="__main__"):
-  test_lnp_big()
-  # test_lnp_simulator()
-  # result = single_izhikevich_trial("results/single_trial_test")
+#   result = single_izhikevich_trial("results/single_trial_test")
+   test_lnp_simulator()
+#   test_lnp_big()
 

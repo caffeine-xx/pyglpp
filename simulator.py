@@ -36,6 +36,18 @@ class LNPSimulator:
       I[i] += sum(res1*s1)+sum(res2*s2)
       I[i] += Mu[i]
     return I
+  
+  def rebase(self, basis, data):
+    ''' Run bases only for the latest value of signal'''
+    num,tau = basis.shape
+    row,col = data.shape
+    if(col<tau): 
+      padded = zeros(row, tau)
+      padded[:,-col:] = data
+      data = padded
+    data    = fliplr(data[:,-tau:])
+    result  = dot(data,basis.T)
+    return result
 
   def run(self, signal):
 
@@ -50,9 +62,9 @@ class LNPSimulator:
     raster = []
 
     for t in xrange(1,trial.length()):
-      bsp         = run_bases(self.spike_basis,spikes[:,spwin(t):t])
-      lams[:,t]   = self.logI(K,H,Mu,bsp[:,-1,:],bst[:,t,:])
-      spikes[:,t] = poisson(exp(lams[:,t])*trial.dt)
+      bsp         = self.rebase(self.spike_basis,spikes)
+      lams[:,t]   = self.logI(K,H,Mu,bsp,bst[:,t,:])
+      spikes[:,t] = poisson(exp(lams[:,t]))
       spiked      = flatnonzero(spikes[:,t])
       raster      = raster + zip(spiked, [trial.bin_to_time(t)]*len(spiked))
 

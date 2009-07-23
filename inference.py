@@ -1,3 +1,4 @@
+import sys
 import math as m
 import numpy as np
 import scipy.ndimage as nd
@@ -213,7 +214,7 @@ class MLEstimator(LikelihoodModel):
       Allows one to perform maximum likelihood inference on any
       likelihood model (i.e. one that exposes logL and logL_grad,
       and pack & unpack) """
-
+  iters = 0
   def __init__(self, model):
     self.model = model
 
@@ -232,4 +233,6 @@ class MLEstimator(LikelihoodModel):
     return self.model.unpack(theta, args)
 
   def callback(self,x):
-    print ".",
+    print self.iters,
+    self.iters += 1
+    sys.stdout.flush()
