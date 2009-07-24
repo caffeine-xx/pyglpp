@@ -1,3 +1,4 @@
+from utils import print_timing
 import sys
 import math as m
 import numpy as np
@@ -80,7 +81,7 @@ class MultiNeuron(LikelihoodModel):
     # basis
     self.base_spikes = run_bases(self.spike_basis, self.spikes)
     self.base_stims  = run_bases(self.stim_basis, self.stims)
-  
+
   def pack(self, K, H, Mu):
     shapes = (K.size, K.shape, H.size, H.shape, Mu.size, Mu.shape)
     theta = np.r_[np.ndarray.ravel(K),np.ndarray.ravel(H),np.ndarray.ravel(Mu)]
@@ -109,11 +110,9 @@ class MultiNeuron(LikelihoodModel):
     I = np.zeros([self.N,self.T],dtype='float64')
     for i in xrange(self.N):
       for j in xrange(self.Nx):
-        res, s  = np.average(self.base_stims[j,:,:],axis=1,weights=K[i,j,:],returned=True)
-        I[i,:] += res*s
+        I[i,:] += np.dot(self.base_stims[j,:,:],K[i,j,:]).T
       for j in xrange(self.N):
-        res, s  = np.average(self.base_spikes[j,:,:],axis=1,weights=H[i,j,:],returned=True)
-        I[i,:] += res*s
+        I[i,:] += np.dot(self.base_spikes[j,:,:],H[i,j,:]).T
       I[i,:] += Mu[i]
     return I
 
@@ -125,6 +124,7 @@ class MultiNeuron(LikelihoodModel):
     t2 = np.sum(np.sum(np.ma.exp(I)))
     return t1 - self.delta*t2
 
+  @print_timing
   def logL_grad(self, K, H, Mu):
     I = self.logI(K,H,Mu)
     expI = np.ma.exp(I)
@@ -141,7 +141,39 @@ class MultiNeuron(LikelihoodModel):
       dM[i]= len(self.sparse[i])-self.delta*np.sum(expI[i,:])
     return dK, dH, dM
 
-  
+  @print_timing
+  def logL_hess_p(self, K, H, Mu, K1, H1, Mu1):
+    ''' Calculates Hessian matrix of the log-likelihood function, 
+        to be matrix multiplied with the PACKED parameter vector. '''
+    expI = np.ma.exp(self.logI(K,H,Mu))
+
+    # Temp variables for easy naming
+    Xf     = self.base_stims
+    Yf     = self.base_spikes
+
+    # Basis-filtered data * intensity, per neuron
+    IK  = -self.delta * np.array([expI[i,:].reshape((1,self.T,1))*Xf for i in xrange(self.N)])
+    IH  = -self.delta * np.array([expI[i,:].reshape((1,self.T,1))*Yf for i in xrange(self.N)])
+    IMM = -self.delta * np.sum(expI,axis=1)
+
+    # Non-zero blocks of Hessian matrix
+    IKK = np.tensordot(IK,Xf,axes=[2,1])
+    IKH = np.tensordot(IK,Yf,axes=[2,1])
+    IHH = np.tensordot(IH,Yf,axes=[2,1])
+    IKM = np.sum(IK,axis=2)
+    IHM = np.sum(IH,axis=2)
+
+    # Products of Hessian with Parameters
+    PK = np.zeros(K.shape)
+    PH = np.zeros(H.shape)
+    PM = np.zeros(Mu.shape)
+    ax = [(2,3),(0,1)]
+    td = np.tensordot
+    for i in xrange(self.N):
+      PK[i] = td(IKK[i],K1[i],axes=ax)+td(IKH[i],H1[i],axes=ax)+IKM[i]*Mu1[i]
+      PH[i] = td(IKH[i],K1[i],axes=[(0,1),(0,1)])+td(IHH[i],H1[i],axes=ax)+IHM[i]*Mu1[i]
+      PM[i] = (IKM[i]*K1[i]).sum()+(IHM[i]*H1[i]).sum()+IMM[i]*Mu1[i]
+    return PK,PH,PM
 
 class FixedConnections(MultiNeuron):
   ''' Neuron model allowing one to fix connections between specific pairs
@@ -227,9 +259,26 @@ class MLEstimator(LikelihoodModel):
     theta, shape = self.model.pack(*tuple(self.model.logL_grad(*a)))
     return -1.0*theta
 
-  def maximize(self,*a):
+  def logL_hess_p(self, theta, p, *args):
+    a = self.model.unpack(theta, args)
+    p = self.model.unpack(p, args)
+    return -1.0*self.model.pack(*tuple(self.model.logL_hess_p(*tuple(a+p))))[0]
+  
+  @print_timing
+  def maximize_cg(self,*a):
+    ''' Doesn't use Hessian matrix - used for checking the Hessian version '''
+    self.iters=0
     theta, args = self.model.pack(*a)
-    theta = opt.fmin_cg(self.logL, theta, self.logL_grad,  args=args, maxiter=1000, gtol=1.0e-03, callback=self.callback)
+    theta = opt.fmin_cg(self.logL, theta, self.logL_grad,  args=args, maxiter=500, gtol=1.0e-02, callback=self.callback)
+    return self.model.unpack(theta, args)
+
+  @print_timing
+  def maximize(self,*a):
+    self.iters=0
+    theta, args = self.model.pack(*a)
+    theta = opt.fmin_ncg(self.logL, theta, self.logL_grad, fhess_p=self.logL_hess_p, args=args, callback=self.callback,maxiter=20)
+    self.iters=0
+    theta2 = opt.fmin_cg(self.logL, theta, self.logL_grad, args=args, maxiter=500, gtol=1.0e-02, callback=self.callback)
     return self.model.unpack(theta, args)
 
   def callback(self,x):

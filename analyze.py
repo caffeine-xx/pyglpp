@@ -13,7 +13,7 @@ def run_analysis(prefix,  model=False):
   if not model: model = standard_model()
   experiment = load_result(prefix+".pickle")
   inferred   = analyze_experiment(model, experiment)
-  inferred.update(information_analysis(inferred))
+#  inferred.update(information_analysis(inferred))
   io.savemat(prefix+".mat",inferred)
   return inferred
 
@@ -44,12 +44,12 @@ def information_analysis(dat):
       The neuron signal analyzed is the log-Poisson intensity'''
   bins = 5
   lag = 2
-  MI = mutual_information(dat['logI'],dat['logI'],bins=bins)
+  #MI = mutual_information(dat['logI'],dat['logI'],bins=bins)
   TE_X = np.array([[transfer_entropy(x,y,lag=lag,bins=bins) 
                     for y in dat['X']] for x in dat['logI']])
   TE_I = np.array([[transfer_entropy(x,y,lag=lag,bins=bins)
                     for y in dat['logI']] for x in dat['logI']])
-  return {'MI':MI, 'TE_X':TE_X, 'TE_I':TE_I}
+  return { 'TE_X':TE_X, 'TE_I':TE_I}
 
 def standard_model():
   model      = SimpleModel()
@@ -58,7 +58,11 @@ def standard_model():
 if(__name__=="__main__"):
   import sys
 
-  prefix = sys.argv[1]
+  try:
+    prefix = sys.argv[1]
+  except:
+    prefix = "neu2"
+
   prefs = ["results/"+prefix] 
   id = 0
   end_id = 0
@@ -75,4 +79,4 @@ if(__name__=="__main__"):
 
   for p in prefs:
     print "=== Running analysis: %s" % p
-    print run_analysis(p)
+    run_analysis(p)

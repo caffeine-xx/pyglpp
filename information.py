@@ -16,16 +16,12 @@ def mutual_information(data1, data2, bins=10):
       pdi = pdf_1d(i,bins=bins)[0]
       pdj = pdf_1d(j,bins=bins)[0]
       pdc = pdf_nd([i,j],bins=bins)[0]
-      try: # this is an incredibly ugly way to avoid a dumb typeError bug.
-        print pdc.entropy()
-      except:
-        print pdc.entropy()
       mutinf[ii,jj] = pdi.entropy()+pdj.entropy()-pdc.entropy()
   return mutinf
 
 def pdf_1d(i,bins=4):
-  ihist, ibins = np.histogram(i, normed=True,bins=bins)
-  ipdf         = st.rv_discrete(name="i",values=[range(bins),ihist])
+  ihist, ibins = np.histogram(i, bins=bins)
+  ipdf         = st.rv_discrete(name="i",values=[range(bins),normalize(ihist)])
   return ipdf,ibins
 
 def pdf_nd(arr, bins=4, name="nd"):
@@ -46,7 +42,7 @@ def marginalize(hist, axis=0):
   return np.sum(hist, axis=axis)
 
 def normalize(hist,axis=None):
-  return hist / hist.sum(axis=axis)
+  return hist.astype(float) / hist.sum(axis=axis)
 
 def clean(hist):
   hist[np.isnan(hist)]=0

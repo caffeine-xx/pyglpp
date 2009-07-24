@@ -133,6 +133,42 @@ def test_multineuron():
         g = by[j,sp,l] - np.sum(by[j,:,l] * eI[i,:])
         assert abs(g-dH[i,j,l]) < 0.01
 
+  return mn
+
+def test_logL_hess():
+  import inference as inf
+  reload(inf)
+
+  b = np.array([
+    [1,1],
+    [2,1]])
+  mn = inf.MultiNeuron(b,b)
+
+  t = 1
+  d = 8
+  x = np.array([
+    [0,1,0,0, 0,0,0,0],
+    [0,0,0,0, 2,0,0,0]])
+  s = [[1],[4]]
+  mn.set_data(t,d,x,s)
+
+  # make sure it doesn't die
+  (K,H,M) = mn.random_args()
+  (K1,H1,M1) = mn.random_args()
+  mn.logL_hess_p(K,H,M,K1,H1,M1)
+  
+  # make sure wrapper works
+  theta, args = mn.pack(K,H,M)
+  p, args = mn.pack(K1,H1,M1)
+  mles = inf.MLEstimator(mn)
+  mles.logL_hess_p(theta,p,*args)
+  
+  # make sure it still gives back decent maximizations
+  a0 = mn.random_args()
+  p1 = mles.maximize(*a0)
+  p2 = mles.maximize_cg(*a0)
+  assert abs(mn.logL(*p1) - mn.logL(*p2)) < 0.1
+
 def test_simplemodel():
 
   b = np.array([
