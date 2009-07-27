@@ -155,8 +155,14 @@ def test_logL_hess():
   # make sure it doesn't die
   (K,H,M) = mn.random_args()
   (K1,H1,M1) = mn.random_args()
-  mn.logL_hess_p(K,H,M,K1,H1,M1)
-  
+  (dK,dH,dM) = mn.logL_grad(K,H,M)
+  (PK,PH,PM) = mn.logL_hess_p(K,H,M,K1,H1,M1)
+  shapechk = lambda (a,b): a.shape == b.shape
+
+  assert map(shapechk,zip([K,H,M],[K1,H1,M1]))
+  assert map(shapechk,zip([K,H,M],[PK,PH,PM]))
+  assert map(shapechk,zip([dK,dH,dM],[PK,PH,PM]))
+
   # make sure wrapper works
   theta, args = mn.pack(K,H,M)
   p, args = mn.pack(K1,H1,M1)
@@ -167,7 +173,11 @@ def test_logL_hess():
   a0 = mn.random_args()
   p1 = mles.maximize(*a0)
   p2 = mles.maximize_cg(*a0)
+  t1 = mn.pack(*p1)[0]
+  t2 = mn.pack(*p2)[0]
+  print t1, t2, np.corrcoef(t1,t2)
   assert abs(mn.logL(*p1) - mn.logL(*p2)) < 0.1
+  assert np.sqrt(np.sum(t1 - t2)**2) < 0.1
 
 def test_simplemodel():
 
@@ -295,6 +305,7 @@ def test_mlestimator():
   assert x<0.01
 
 if (__name__ == "__main__"):
+  test_logL_hess()
   test_multineuron()
   test_simplemodel()
   test_mlestimator()

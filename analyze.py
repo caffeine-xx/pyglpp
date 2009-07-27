@@ -21,13 +21,18 @@ def run_analysis(prefix,  model=False):
 def analyze_experiment(model,experiment):
   ''' Performs ML inference on the given model,
   and returns the resulting parameters '''
+  import inference as inf
+  reload(inf)
   
+  model = inf.MultiNeuron()
+
   trial = experiment.signal.trial
   input = experiment.signal
   output = SparseBinarySignal(trial,experiment.output)
-  model.set_data(trial,input,output)
+  model.set_data(trial.dt, trial.length(), input.signal, output.sparse_bins())
+
   initial   = model.random_args()
-  estimator = MLEstimator(model)
+  estimator = inf.MLEstimator(model)
   maximized = estimator.maximize(*initial)
   intensity = model.logI(*maximized)
   result    = dict(zip(('K','H','Mu','T','logI','X','Y','Yr','Xb','Yb'),

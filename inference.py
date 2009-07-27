@@ -98,7 +98,7 @@ class MultiNeuron(LikelihoodModel):
     Ksize = (self.N, self.Nx, self.stim_b)
     Hsize = (self.N, self.N, self.spike_b)
     Msize = (self.N)
-    return (0.01*np.random.standard_normal(Ksize), 0.01*np.random.standard_normal(Hsize), 0.01*np.random.standard_normal(Msize))
+    return (np.ones(Ksize)*0.1, np.ones(Hsize)*0.1, np.ones(Msize)*0.1)
 
   def zero_args(self):
     Ksize = (self.N, self.Nx, self.stim_b)
@@ -124,7 +124,6 @@ class MultiNeuron(LikelihoodModel):
     t2 = np.sum(np.sum(np.ma.exp(I)))
     return t1 - self.delta*t2
 
-  @print_timing
   def logL_grad(self, K, H, Mu):
     I = self.logI(K,H,Mu)
     expI = np.ma.exp(I)
@@ -141,7 +140,6 @@ class MultiNeuron(LikelihoodModel):
       dM[i]= len(self.sparse[i])-self.delta*np.sum(expI[i,:])
     return dK, dH, dM
 
-  @print_timing
   def logL_hess_p(self, K, H, Mu, K1, H1, Mu1):
     ''' Calculates Hessian matrix of the log-likelihood function, 
         to be matrix multiplied with the PACKED parameter vector. '''
@@ -154,7 +152,6 @@ class MultiNeuron(LikelihoodModel):
     # Basis-filtered data * intensity, per neuron
     IK  = -self.delta * np.array([expI[i,:].reshape((1,self.T,1))*Xf for i in xrange(self.N)])
     IH  = -self.delta * np.array([expI[i,:].reshape((1,self.T,1))*Yf for i in xrange(self.N)])
-    IMM = -self.delta * np.sum(expI,axis=1)
 
     # Non-zero blocks of Hessian matrix
     IKK = np.tensordot(IK,Xf,axes=[2,1])
@@ -162,11 +159,12 @@ class MultiNeuron(LikelihoodModel):
     IHH = np.tensordot(IH,Yf,axes=[2,1])
     IKM = np.sum(IK,axis=2)
     IHM = np.sum(IH,axis=2)
+    IMM = np.sum(expI,axis=1) * -self.delta
 
     # Products of Hessian with Parameters
-    PK = np.zeros(K.shape)
-    PH = np.zeros(H.shape)
-    PM = np.zeros(Mu.shape)
+    PK = np.zeros(K.shape,dtype='float64')
+    PH = np.zeros(H.shape,dtype='float64')
+    PM = np.zeros(Mu.shape,dtype='float64')
     ax = [(2,3),(0,1)]
     td = np.tensordot
     for i in xrange(self.N):
@@ -174,6 +172,55 @@ class MultiNeuron(LikelihoodModel):
       PH[i] = td(IKH[i],K1[i],axes=[(0,1),(0,1)])+td(IHH[i],H1[i],axes=ax)+IHM[i]*Mu1[i]
       PM[i] = (IKM[i]*K1[i]).sum()+(IHM[i]*H1[i]).sum()+IMM[i]*Mu1[i]
     return PK,PH,PM
+
+class MLEstimator(LikelihoodModel):
+  """ Decorator for LikelihoodModels
+      Allows one to perform maximum likelihood inference on any
+      likelihood model (i.e. one that exposes logL and logL_grad,
+      and pack & unpack) """
+  iters = 0
+  def __init__(self, model):
+    self.model = model
+
+  def logL(self,theta, *args):
+    a = self.model.unpack(theta, args)
+    return -1.0 * self.model.logL(*a)
+
+  def logL_grad(self,theta, *args):
+    a = self.model.unpack(theta, args)
+    theta, shape = self.model.pack(*tuple(self.model.logL_grad(*a)))
+    return -1.0 * theta
+
+  def logL_hess_p(self, theta, p, *args):
+    a = self.model.unpack(theta, args)
+    p = self.model.unpack(p, args)
+    args = tuple(a+p)
+    hp = self.model.logL_hess_p(*args)
+    theta, shape = self.model.pack(*hp)
+    return -1.0 * theta
+
+  @print_timing
+  def maximize_cg(self,*a):
+    ''' Doesn't use Hessian matrix - used for checking the Hessian version '''
+    self.iters=0
+    theta, args = self.model.pack(*a)
+    theta = opt.fmin_cg(self.logL, theta, self.logL_grad,  args=args, maxiter=500, gtol=1.0e-02, callback=self.callback)
+    return self.model.unpack(theta, args)
+
+  @print_timing
+  def maximize(self,*a):
+    self.iters=0
+    theta, args = self.model.pack(*a)
+    theta = opt.fmin_ncg(f=self.logL, x0=theta, fprime=self.logL_grad, 
+                         fhess_p=self.logL_hess_p, 
+                         args=args, maxiter=30,
+                         callback=self.callback)
+    return self.model.unpack(theta, args)
+
+  def callback(self,x):
+    print self.iters,
+    self.iters += 1
+    sys.stdout.flush()
 
 class FixedConnections(MultiNeuron):
   ''' Neuron model allowing one to fix connections between specific pairs
@@ -241,47 +288,4 @@ class SimpleModel(MultiNeuron):
       trial.dt, trial.length(),
       in_signal.signal, out_signal.sparse_bins())
 
-class MLEstimator(LikelihoodModel):
-  """ Decorator for LikelihoodModels
-      Allows one to perform maximum likelihood inference on any
-      likelihood model (i.e. one that exposes logL and logL_grad,
-      and pack & unpack) """
-  iters = 0
-  def __init__(self, model):
-    self.model = model
 
-  def logL(self,theta, *args):
-    a = self.model.unpack(theta, args)
-    return -1.0*self.model.logL(*a)
-
-  def logL_grad(self,theta, *args):
-    a = self.model.unpack(theta, args)
-    theta, shape = self.model.pack(*tuple(self.model.logL_grad(*a)))
-    return -1.0*theta
-
-  def logL_hess_p(self, theta, p, *args):
-    a = self.model.unpack(theta, args)
-    p = self.model.unpack(p, args)
-    return -1.0*self.model.pack(*tuple(self.model.logL_hess_p(*tuple(a+p))))[0]
-  
-  @print_timing
-  def maximize_cg(self,*a):
-    ''' Doesn't use Hessian matrix - used for checking the Hessian version '''
-    self.iters=0
-    theta, args = self.model.pack(*a)
-    theta = opt.fmin_cg(self.logL, theta, self.logL_grad,  args=args, maxiter=500, gtol=1.0e-02, callback=self.callback)
-    return self.model.unpack(theta, args)
-
-  @print_timing
-  def maximize(self,*a):
-    self.iters=0
-    theta, args = self.model.pack(*a)
-    theta = opt.fmin_ncg(self.logL, theta, self.logL_grad, fhess_p=self.logL_hess_p, args=args, callback=self.callback,maxiter=20)
-    self.iters=0
-    theta2 = opt.fmin_cg(self.logL, theta, self.logL_grad, args=args, maxiter=500, gtol=1.0e-02, callback=self.callback)
-    return self.model.unpack(theta, args)
-
-  def callback(self,x):
-    print self.iters,
-    self.iters += 1
-    sys.stdout.flush()
