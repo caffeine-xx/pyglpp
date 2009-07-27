@@ -1,7 +1,9 @@
 import cPickle
-from matplotlib import pyplot
+import signals as sig
+import NeuroTools.signals as ntsig
 from brian import *
-from NeuroTools import signals
+from matplotlib import pyplot
+from scipy import io
 
 class Result:
   ''' Object variables:
@@ -18,9 +20,6 @@ class Result:
     self.output = self.de_unit(output)
     self.monitors = monitors
   
-  def write_to_file(self,filename):
-    cPickle.Pickler(file(filename,'w'),2).dump(self)
-
   def plot(self):
     pyplot.figure()
     time = self.signal.trial.range()
@@ -43,40 +42,51 @@ class Result:
     for k,(i,t) in enumerate(train):
       ids[k] = i
       tim[k] = t
-    pyplot.plot(tim, ids, color='white', marker='o', markerfacecolor='blue',
-      markersize=3,  **args)
+    pyplot.plot(tim, ids, color='white', marker='o', 
+                  markerfacecolor='blue',markersize=3,  **args)
 
   def de_unit(self, list):
     return [(id, float(time)) for (id, time) in list]
 
-class NeuroToolsResult(Result):
-  ''' Converts a normal result into NeuroTools signals '''
-  def __init__(self, res):
-    self.signal = res.signal.to_analog()
-    ids = range(res.params['neurons']['N'])
-    self.input  = signals.SpikeList(self.de_unit(res.input), range(res.signal.dims()))
-    print self.input.spikes
-    self.output = signals.SpikeList(self.de_unit(res.output), ids)
-    print self.output.spikes
-    self.monitors = {}
-    for k in res.monitors:
-      self.monitors[k] = signals.AnalogSignalList(res.monitors[k]/ms, ids, **res.signal.trial.to_hash())
+  def import_dict(self, data):
+    if not getattr(self, 'imported', False):
+      self.imported = dict()
+    self.imported.update(data)
+    for k in data.keys():
+      setattr(self, k, data[k])
 
-  def graph(self):
-    for k in self.monitors:
-      for j in self.monitors[k]:
-        j.plot(ylabel=k)
-    self.input.raster_plot()
-    self.output.raster_plot()
-    self.signal.plot(ylabel='signal')
-    pylab.show()
+  def export_dict(self):
+    try: 
+      input_trains = self.input_trains
+      spike_trains = self.spike_trains
+    except:
+      input_trains = sig.SparseBinarySignal(self.signal.trial,self.input)
+      spike_trains = sig.SparseBinarySignal(self.signal.trial,self.output)
+
+    exp = {
+      'input_weight':self.params['inputs']['weight'],
+      'connect_weight':self.params['connect']['weight'],
+      'timeline':self.signal.trial.range(),'stimulus':self.signal.signal,
+      'input_trains':input_trains, 'input_raster':array(self.input),
+      'spike_trains':spike_trains, 'spike_raster': array(self.output),
+    }
+
+    exp.update(getattr(self,imported,{}))
+
+    return exp
 
 def load_result(filename):
-    return cPickle.Unpickler(file(filename, 'r')).load()
+  return cPickle.Unpickler(file(filename+".pickle", 'r')).load()
+
+def save_result(prefix,result):
+  cPickle.Pickler(file(filename+".pickle",'w'),2).dump(result)
+
+def export_result(prefix,result):
+  io.savemat(prefix,result.export_dict())
 
 if(__name__=="__main__"):
   import sys
   prefix = sys.argv[1]
-  res = load_result("results/%s.pickle" % prefix)
+  res = load_result("results/%s" % prefix)
   res.plot()
 

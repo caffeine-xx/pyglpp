@@ -1,72 +1,36 @@
-import result
-import numpy as np
-from signals import *
-from inference import *
-from scipy import io
-from utils import print_timing
-from result import load_result
-from information import *
+import inference as inf
+import result as re
+reload(inf)
+reload(re)
 
-def run_analysis(prefix,  model=False):
-  ''' Analyzes a particular trial and saves the result in
-      filters in prefix.mat (MATLAB-compatible) '''
-  if not model: model = standard_model()
-  experiment = load_result(prefix+".pickle")
-  inferred   = analyze_experiment(model, experiment)
-#  inferred.update(information_analysis(inferred))
-  io.savemat(prefix+".mat",inferred)
-  return inferred
+def main(prefix):
 
-@print_timing
-def analyze_experiment(model,experiment):
-  ''' Performs ML inference on the given model,
-  and returns the resulting parameters '''
-  import inference as inf
-  reload(inf)
-  
-  model = inf.MultiNeuron()
+  result = re.load_result(prefix)
+  result.import_dict(ml_glpp_parameters(result))
+  re.save_result(prefix,result)
 
-  trial = experiment.signal.trial
-  input = experiment.signal
-  output = SparseBinarySignal(trial,experiment.output)
-  model.set_data(trial.dt, trial.length(), input.signal, output.sparse_bins())
-
-  initial   = model.random_args()
-  estimator = inf.MLEstimator(model)
-  maximized = estimator.maximize(*initial)
-  intensity = model.logI(*maximized)
-  result    = dict(zip(('K','H','Mu','T','logI','X','Y','Yr','Xb','Yb'),
-              maximized + (trial.range(),intensity,input.signal,output(),
-                           array(experiment.output),model.stim_basis,
-                           model.spike_basis)))
   return result
 
-@print_timing
-def information_analysis(dat):
-  ''' Calculates mutual info and transfer entropy between:
-      - Each pair of neurons (in each direction)
-      - The input signal and each neuron
-      The neuron signal analyzed is the log-Poisson intensity'''
-  bins = 5
-  lag = 2
-  #MI = mutual_information(dat['logI'],dat['logI'],bins=bins)
-  TE_X = np.array([[transfer_entropy(x,y,lag=lag,bins=bins) 
-                    for y in dat['X']] for x in dat['logI']])
-  TE_I = np.array([[transfer_entropy(x,y,lag=lag,bins=bins)
-                    for y in dat['logI']] for x in dat['logI']])
-  return { 'TE_X':TE_X, 'TE_I':TE_I}
+def ml_glpp_parameters(result, model=False):
+  ''' Performs ML inference on the given simulation result,
+  and returns the resulting parameters '''
 
-def standard_model():
-  model      = SimpleModel()
-  return model
+  if not model:
+    model = inf.MultiNeuron()
+
+  model.set_data(result.trial.dt, result.trial.length(), result.input.signal, result.output.signal)
+  K,H,Mu    = model.max_likelihood()
+  intensity = model.logI(K,H,Mu)
+
+  parameters = {'K':K, 'H':H, 'Mu':Mu, 'intensity':intensity,
+    'stim_basis':model.stim_basis,'spike_basis':model.spike_basis}
+  
+  return parameters
 
 if(__name__=="__main__"):
   import sys
 
-  try:
-    prefix = sys.argv[1]
-  except:
-    prefix = "neu2"
+  prefix = sys.argv[1]
 
   prefs = ["results/"+prefix] 
   id = 0
@@ -84,4 +48,4 @@ if(__name__=="__main__"):
 
   for p in prefs:
     print "=== Running analysis: %s" % p
-    run_analysis(p)
+    main(p)

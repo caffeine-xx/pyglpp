@@ -1,7 +1,19 @@
 import numpy as np
 import scipy.stats as st
 
-# mutual information and transfer entropy
+def information_analysis(dat):
+  ''' Calculates mutual info and transfer entropy between:
+      - Each pair of neurons (in each direction)
+      - The input signal and each neuron
+      The neuron signal analyzed is the log-Poisson intensity'''
+  bins = 5
+  lag = 2
+  #MI = mutual_information(dat['logI'],dat['logI'],bins=bins)
+  TE_X = np.array([[transfer_entropy(x,y,lag=lag,bins=bins) 
+                    for y in dat['X']] for x in dat['logI']])
+  TE_I = np.array([[transfer_entropy(x,y,lag=lag,bins=bins)
+                    for y in dat['logI']] for x in dat['logI']])
+  return { 'TE_X':TE_X, 'TE_I':TE_I}
 
 def mutual_information(data1, data2, bins=10):
   ''' Calulates a matrix of pairwise mutual informations for two
