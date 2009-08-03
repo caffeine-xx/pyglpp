@@ -8,6 +8,7 @@ import scipy.stats as st
 from memoize import Memoize
 from signals import *
 
+@print_timing
 def run_bases(bases, data):
   """ Correlates a dataset with a set of bases.
       Takes a 2D array to a 3D array """
@@ -55,8 +56,8 @@ class LikelihoodModel:
 
 
 default_basis_length = Trial(0,2*pi,dt=pi/16)
-default_spike_basis  = SineBasisGenerator(7,dim=5).generate(default_basis_length)
-default_stim_basis   = SineBasisGenerator(7,dim=5).generate(default_basis_length)
+default_spike_basis  = SineBasisGenerator(2,dim=2).generate(default_basis_length)
+default_stim_basis   = SineBasisGenerator(2,dim=2).generate(default_basis_length)
 
 class MultiNeuron(LikelihoodModel):
   """ Multi-neuron Poisson model with user-specified bases"""
@@ -82,6 +83,10 @@ class MultiNeuron(LikelihoodModel):
     self.base_spikes = run_bases(self.spike_basis, self.spikes)
     self.base_stims  = run_bases(self.stim_basis, self.stims)
 
+  def max_likelihood(self):
+    estimator = MLEstimator(self)
+    return estimator.maximize(*self.random_args())
+
   def pack(self, K, H, Mu):
     shapes = (K.size, K.shape, H.size, H.shape, Mu.size, Mu.shape)
     theta = np.r_[np.ndarray.ravel(K),np.ndarray.ravel(H),np.ndarray.ravel(Mu)]
@@ -95,10 +100,10 @@ class MultiNeuron(LikelihoodModel):
     return K, H, Mu
   
   def random_args(self):
-    Ksize = (self.N, self.Nx, self.stim_b)
-    Hsize = (self.N, self.N, self.spike_b)
-    Msize = (self.N)
-    return (np.ones(Ksize)*0.1, np.ones(Hsize)*0.1, np.ones(Msize)*0.1)
+    K = np.random.rand(self.N, self.Nx, self.stim_b)*0.1+0.1
+    H = np.random.rand(self.N, self.N, self.spike_b)*0.1+0.1
+    M = np.random.rand(self.N)*0.1+0.1
+    return K,H,M
 
   def zero_args(self):
     Ksize = (self.N, self.Nx, self.stim_b)
@@ -140,37 +145,38 @@ class MultiNeuron(LikelihoodModel):
       dM[i]= len(self.sparse[i])-self.delta*np.sum(expI[i,:])
     return dK, dH, dM
 
-  def logL_hess_p(self, K, H, Mu, K1, H1, Mu1):
-    ''' Calculates Hessian matrix of the log-likelihood function, 
-        to be matrix multiplied with the PACKED parameter vector. '''
-    expI = np.ma.exp(self.logI(K,H,Mu))
-
+  def logL_hess_p_inc(self, K, H, Mu, K1, H1, Mu1):
     # Temp variables for easy naming
     Xf     = self.base_stims
     Yf     = self.base_spikes
 
-    # Basis-filtered data * intensity, per neuron
-    IK  = -self.delta * np.array([expI[i,:].reshape((1,self.T,1))*Xf for i in xrange(self.N)])
-    IH  = -self.delta * np.array([expI[i,:].reshape((1,self.T,1))*Yf for i in xrange(self.N)])
-
-    # Non-zero blocks of Hessian matrix
-    IKK = np.tensordot(IK,Xf,axes=[2,1])
-    IKH = np.tensordot(IK,Yf,axes=[2,1])
-    IHH = np.tensordot(IH,Yf,axes=[2,1])
-    IKM = np.sum(IK,axis=2)
-    IHM = np.sum(IH,axis=2)
-    IMM = np.sum(expI,axis=1) * -self.delta
-
-    # Products of Hessian with Parameters
     PK = np.zeros(K.shape,dtype='float64')
     PH = np.zeros(H.shape,dtype='float64')
     PM = np.zeros(Mu.shape,dtype='float64')
+
     ax = [(2,3),(0,1)]
     td = np.tensordot
+
+    expI = np.ma.exp(self.logI(K,H,Mu))
+    IMM  = np.sum(expI,axis=1) * -self.delta
+
+    # Basis-filtered data * intensity, per neuron
     for i in xrange(self.N):
-      PK[i] = td(IKK[i],K1[i],axes=ax)+td(IKH[i],H1[i],axes=ax)+IKM[i]*Mu1[i]
-      PH[i] = td(IKH[i],K1[i],axes=[(0,1),(0,1)])+td(IHH[i],H1[i],axes=ax)+IHM[i]*Mu1[i]
-      PM[i] = (IKM[i]*K1[i]).sum()+(IHM[i]*H1[i]).sum()+IMM[i]*Mu1[i]
+      IK  = -self.delta * expI[i,:].reshape((1,self.T,1))*Xf
+      IH  = -self.delta * expI[i,:].reshape((1,self.T,1))*Yf
+
+      # Non-zero blocks of Hessian matrix
+      IKK = td(IK,Xf,axes=[1,1])
+      IKH = td(IK,Yf,axes=[1,1])
+      IHH = td(IH,Yf,axes=[1,1])
+      IKM = np.sum(IK,axis=1)
+      IHM = np.sum(IH,axis=1)
+
+      # Products of Hessian with Parameters
+      PK[i] = td(IKK,K1[i],axes=ax)+td(IKH,H1[i],axes=ax)+IKM*Mu1[i]
+      PH[i] = td(IKH,K1[i],axes=[(0,1),(0,1)])+td(IHH,H1[i],axes=ax)+IHM*Mu1[i]
+      PM[i] = (IKM*K1[i]).sum()+(IHM*H1[i]).sum()+IMM[i]*Mu1[i]
+
     return PK,PH,PM
 
 class MLEstimator(LikelihoodModel):
@@ -179,6 +185,7 @@ class MLEstimator(LikelihoodModel):
       likelihood model (i.e. one that exposes logL and logL_grad,
       and pack & unpack) """
   iters = 0
+
   def __init__(self, model):
     self.model = model
 
@@ -191,15 +198,15 @@ class MLEstimator(LikelihoodModel):
     theta, shape = self.model.pack(*tuple(self.model.logL_grad(*a)))
     return -1.0 * theta
 
+  @print_timing
   def logL_hess_p(self, theta, p, *args):
     a = self.model.unpack(theta, args)
     p = self.model.unpack(p, args)
     args = tuple(a+p)
-    hp = self.model.logL_hess_p(*args)
+    hp = self.model.logL_hess_p_inc(*args)
     theta, shape = self.model.pack(*hp)
     return -1.0 * theta
 
-  @print_timing
   def maximize_cg(self,*a):
     ''' Doesn't use Hessian matrix - used for checking the Hessian version '''
     self.iters=0
@@ -209,6 +216,7 @@ class MLEstimator(LikelihoodModel):
 
   @print_timing
   def maximize(self,*a):
+    print 'Maximizing using Newton Conjugate Gradient method'
     self.iters=0
     theta, args = self.model.pack(*a)
     theta = opt.fmin_ncg(f=self.logL, x0=theta, fprime=self.logL_grad, 

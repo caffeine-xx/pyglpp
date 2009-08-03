@@ -1,4 +1,6 @@
 import sys
+import config
+import result
 import trials
 from utils import print_timing
 
@@ -11,7 +13,7 @@ def run_trial(trial, prefix="experiment", *args):
     - *args: arguments to the trial function '''
   reload(trials)
   resu = getattr(trials, trial)(*args)
-  resu.write_to_file("results/%s.pickle" % prefix)
+  result.save_result(config.results_dir + prefix, resu)
   return resu
 
 if(__name__=="__main__"):
@@ -24,6 +26,6 @@ if(__name__=="__main__"):
   print "Args: ", args
   resu = run_trial(trial,prefix,*args)
   try:
-    resu.plot()
+    result.ResultPlotter(resu).plot()
   except:
     print "Couldn't plot: "

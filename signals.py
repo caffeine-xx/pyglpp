@@ -169,6 +169,16 @@ class FlatlineGenerator(SignalGenerator):
     values = self.mean * ones((self.dim, trial.length()))
     return Signal(trial, values)
 
+class SingleSpikeGenerator(SignalGenerator):
+  ''' Generates a single positive value in the beginning '''
+  def __init__(self, dim=1):
+    self.dim = dim
+
+  def generate(self,trial):
+    sig = zeros((self.dim,trial.length()))
+    sig[:,1] = 1
+    return Signal(trial, sig)
+
 class GaussianNoiseGenerator(SignalGenerator):
   ''' Generate random Gaussian white noise.'''
   def __init__(self, mean=0.0, std=1.0, dim=1):

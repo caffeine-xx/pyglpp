@@ -1,49 +1,50 @@
+import config
 import cPickle
 import signals as sig
-import NeuroTools.signals as ntsig
-from brian import *
+import numpy as np
 from matplotlib import pyplot
 from scipy import io
 
-class Result:
-  ''' Object variables:
-        - params: Dictionary of parameters used to initialize the simulation
-        - input:  Input signal
-        - output: Tuple of output signals from neuron populations (usually
-            input Poisson population and output Izhikevich population)
-        - trial:  Clock information '''
+class ResultPlotter:
+  def __init__(self, result):
+    self.result = result
 
-  def __init__(self, params, signal, input, output, monitors={}):
-    self.params = params
-    self.signal = signal
-    self.input  = self.de_unit(input)
-    self.output = self.de_unit(output)
-    self.monitors = monitors
-  
   def plot(self):
     pyplot.figure()
-    time = self.signal.trial.range()
-    [pyplot.plot(time, k) for k in self.signal()]
+    time = self.result.trial.range()
+    [pyplot.plot(time, k) for k in self.result.stimulus()]
     pyplot.figure()
     pyplot.subplot(211)
-    self.raster(self.input, label='input')
+    self.raster(self.result.input, label='input')
     pyplot.subplot(212)
-    self.raster(self.output, label='output')
+    self.raster(self.result.output, label='output')
     pyplot.figure()
-    for n,k in enumerate(self.monitors):
-        pyplot.subplot(len(self.monitors), 1, n+1)
-        [pyplot.plot(x) for x in self.monitors[k]]
+    for n,k in enumerate(self.result.monitors):
+        pyplot.subplot(len(self.result.monitors), 1, n+1)
+        [pyplot.plot(x) for x in self.result.monitors[k]]
     pyplot.show()
 
   def raster(self, train, **args):
     if len(train)==0: return None
-    ids = zeros(len(train))
-    tim = zeros(len(train))
+    ids = np.zeros(len(train))
+    tim = np.zeros(len(train))
     for k,(i,t) in enumerate(train):
       ids[k] = i
       tim[k] = t
     pyplot.plot(tim, ids, color='white', marker='o', 
                   markerfacecolor='blue',markersize=3,  **args)
+
+class Result:
+
+  def __init__(self, params, stimulus, input, output, monitors={}):
+    self.params = params
+    self.trial  = stimulus.trial
+    self.input  = self.de_unit(input)
+    self.output = self.de_unit(output)
+    self.monitors = monitors
+    self.stimulus = stimulus
+    self.input_trains = sig.SparseBinarySignal(self.trial,self.input)
+    self.spike_trains = sig.SparseBinarySignal(self.trial,self.output)
 
   def de_unit(self, list):
     return [(id, float(time)) for (id, time) in list]
@@ -57,36 +58,33 @@ class Result:
 
   def export_dict(self):
     try: 
-      input_trains = self.input_trains
-      spike_trains = self.spike_trains
+      self.input_trains = self.input_trains
+      self.spike_trains = self.spike_trains
     except:
-      input_trains = sig.SparseBinarySignal(self.signal.trial,self.input)
-      spike_trains = sig.SparseBinarySignal(self.signal.trial,self.output)
-
+      self.input_trains = sig.SparseBinarySignal(self.trial,self.input)
+      self.spike_trains = sig.SparseBinarySignal(self.trial,self.output)
     exp = {
       'input_weight':self.params['inputs']['weight'],
       'connect_weight':self.params['connect']['weight'],
-      'timeline':self.signal.trial.range(),'stimulus':self.signal.signal,
-      'input_trains':input_trains, 'input_raster':array(self.input),
-      'spike_trains':spike_trains, 'spike_raster': array(self.output),
+      'timeline':self.trial.range(),'stimulus':self.stimulus.signal,
+      'input_trains':self.input_trains.fill(), 'input_raster':array(self.input),
+      'spike_trains':self.spike_trains.fill(), 'spike_raster': array(self.output),
     }
-
     exp.update(getattr(self,imported,{}))
-
     return exp
 
 def load_result(filename):
   return cPickle.Unpickler(file(filename+".pickle", 'r')).load()
 
-def save_result(prefix,result):
+def save_result(filename,result):
   cPickle.Pickler(file(filename+".pickle",'w'),2).dump(result)
 
-def export_result(prefix,result):
-  io.savemat(prefix,result.export_dict())
+def export_result(filename,result):
+  io.savemat(filename,result.export_dict())
 
 if(__name__=="__main__"):
   import sys
   prefix = sys.argv[1]
-  res = load_result("results/%s" % prefix)
+  res = ResultPlotter(load_result(config.results_dir + prefix))
   res.plot()
 

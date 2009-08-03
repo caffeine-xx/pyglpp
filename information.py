@@ -8,7 +8,7 @@ def information_analysis(dat):
       The neuron signal analyzed is the log-Poisson intensity'''
   bins = 5
   lag = 2
-  #MI = mutual_information(dat['logI'],dat['logI'],bins=bins)
+  MI = mutual_information(dat['logI'],dat['logI'],bins=bins)
   TE_X = np.array([[transfer_entropy(x,y,lag=lag,bins=bins) 
                     for y in dat['X']] for x in dat['logI']])
   TE_I = np.array([[transfer_entropy(x,y,lag=lag,bins=bins)
@@ -54,11 +54,12 @@ def marginalize(hist, axis=0):
   return np.sum(hist, axis=axis)
 
 def normalize(hist,axis=None):
-  return hist.astype(float) / hist.sum(axis=axis)
+  result = hist.astype(float) / hist.sum(axis=axis)
+  return clean(result)
 
 def clean(hist):
-  hist[np.isnan(hist)]=0
-  hist[np.isinf(hist)]=0
+  hist[np.isnan(hist)]=0.
+  hist[np.isinf(hist)]=0.
   return hist
 
 def h2pdf(hist,axis=None):
@@ -83,19 +84,63 @@ def multi_marginalize(x, axes=[0]):
     result = marginalize(result, a)
   return result
 
-def transfer_entropy(ts1,ts2,lag=1,bins=10):
+def transfer_entropy(ts1,ts2,lag=1,bins=4):
+  ''' D_1<-2 '''
+
   ts1,lts1  = multi_lag(ts1,lag)
   ts2,lts2  = multi_lag(ts2,lag)
-  lts2_ax   = range(lag+1,2*lag+1)
 
-  lag1   = h2pdf(np.histogramdd(lts1,bins=bins)[0])
-  joint  = h2pdf(np.histogramdd([ts1]+lts1+lts2, bins=bins)[0])
-  lagged = h2pdf(marginalize(joint, 0))
-  auto   = h2pdf(multi_marginalize(joint, lts2_ax))
-  jcond  = h2pdf(np.true_divide(joint , lagged),axis=0)
-  acond  = h2pdf(np.true_divide(auto , lag1),axis=0)
+  # P(i_n+1, i_(n), j_(n))
+  joint = np.histogramdd([ts1]+lts1+lts2, bins=bins)[0]
+  joint = normalize(joint)
+  # P(i_n+1, i_(n))
+  auto = np.histogramdd([ts1]+lts1, bins=bins)[0]
+  auto = normalize(auto)
+  # P(i_(n))
+  lag1 = np.histogramdd(lts1,bins=bins)[0]
+  lag1 = normalize(lag1)
+  # P(i_(n), j_(n))
+  lag12 = np.histogramdd(lts1+lts2, bins=bins)[0]
+  lag12 = normalize(lag12)
+  # P(i_n+1 | i_(n), j_(n))
+  jcond = np.divide(joint.T , lag12.T).T
+  jcond = clean(jcond) 
+  jcond = do_cpdf(jcond.T, avg_zeros).T
+  # P(i_n+1 | i_(n))
+  acond = np.divide(auto.T, lag1.T).T
+  acond = clean(acond)
+  acond = do_cpdf(acond.T, avg_zeros).T
+  do_cpdf(acond, is_pdf)
+  # E log P(i_n+1 | i_(n), j_(n)) / P(i_n+1 | i_(n))
+  transfer = joint * clean(np.log(np.divide(jcond , acond)))
 
-  logratio  = clean(np.log(np.true_divide(jcond , acond)))
-  transfer = clean(joint * logratio)
   return transfer.sum()
+
+def do_cpdf(pdf, f):
+  newpdf = pdf
+  if len(pdf.shape)==1:
+    newpdf[:] = f(pdf)
+  else: 
+    for i,j in enumerate(pdf):
+      newpdf[i] = do_cpdf(j,f)
+  return newpdf
+
+def avg_zeros(pdf):
+  ''' Takes a conditional PDF in which the last index is the random var,
+      and subsequent indices are conditional vars.  '''
+  if pdf.sum() == 0:
+    pdf[:] = 1./len(pdf)
+  return pdf
+
+def is_pdf(p):
+  assert abs(1.0 - p.sum())<0.001
+  assert (p>=0).all()
+  assert (p<=1).all()
+  return True
+
+def poiss_transfer_entropy(params1, params2, stim_filter, spike_filter):
+
+  (K1,H1,Mu1) = params1
+  (K2,H2,Mu2) = params2
+  
 

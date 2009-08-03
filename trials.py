@@ -69,34 +69,56 @@ def random_net(N=200,lam=1.0, pi=0.1, rs=0.02, inh=0.2):
   resu = simu.run(signal)
   return resu
 
+def two_lnp(t=1.0):
+  ''' Two neurons, one independent '''
+  dX,dY = 1,2
+  Xb = SineBasisGenerator(a=2,dim=dX).generate().signal
+  Yb = SineBasisGenerator(a=2,dim=dY).generate().signal
+
+  H = array([[[0.0, 0.0], [0.0, 0.0]],
+             [[1.0, 0.5], [-2.0, -1.0]]])
+  K = zeros((2,1,1))
+  M = array([-4., -4.0])
+
+  trial = Trial(t_start=0.0, t_stop=t, dt=0.001)
+  signal = Signal(trial, zeros((1,trial.length())))
+  
+  simu = s.LNPSimulator(Yb,Xb,2,K,H,M)
+  print simu.params
+  return simu.run(signal)
+
 def random_lnp(N=20, t=0.1, lam=2.0,rs=0.02):
 
   N,t,lam,rs  = int(N),float(t),float(lam),float(rs)
-  dX,dY,dS = 5,5,5
+  dX,dY,dS = 5,5,1
   Ni       = int(0.2*N)
-  Sparse   = 0.2
-  variance = 2./N
-  mean     = 2.2/N
+  SparseI  = 0.4
+  SparseS  = 0.5
+
+  Kvar,Kmean = 0.1, 0.00
+  Hvar,Hmean = 0.1, 0.00
 
   trial  = Trial(t_start=0.0, t_stop=t, dt=0.001)
-  signal = GaussianNoiseGenerator(1.0, 1.0, dS).generate(trial)
+  signal = SingleSpikeGenerator(dim=dS).generate(trial)
+  #signal = GaussianNoiseGenerator(0.01, 0.01, dS).generate(trial)
   
-  Xb = SineBasisGenerator(dim=dX).generate().signal
-  Yb = SineBasisGenerator(dim=dY).generate().signal
+  Xb = SineBasisGenerator(a=2.7,dim=dX).generate().signal
+  Yb = SineBasisGenerator(a=2.7,dim=dY).generate().signal
 
-  K = random.randn(N,dS,dX)*variance+mean
-  H = random.randn(N,N,dY)*variance+mean
-  M = random.randn(N)*0.5+1.4
+  K = random.randn(N,dS,dX)*Kvar+Kmean
+  H = random.randn(N,N,dY)*Hvar+Hmean
+  M = random.randn(N)*0.1
   
   weight = randomly_switch(taur_connector(N,N,lam),rs)
-  weight[:,:Ni] = (random.rand(N,Ni)<Sparse)*-1.0
-
+  weight[:,:Ni] = (random.rand(N,Ni)<SparseI)*-1.0
+  
   for i in range(N): 
     for k in range(dS):
-      K[i,k,:] = (random.rand() < Sparse) * K[i,k,:]
+      K[i,k,:] = (random.rand() < SparseS) * K[i,k,:]
     for j in range(N):
-      H[i,j,:] = H[i,j,:] * weight[i,j]
-  
+      H[i,j,:] = H[i,j,:] + 0.5 * weight[i,j]
+    H[i,i,:] = arange(0.0,1.0,1./dS)-0.5
+
   w2 = average(H,axis=2)
   pylab.matshow(weight)
   pylab.matshow(w2)
