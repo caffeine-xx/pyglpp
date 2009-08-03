@@ -6,29 +6,6 @@ import cPickle
 
 import simulator as s
 from signals import *
-
-def two_neuron(pw=0, pi=0):
-  (pw,pi) = map(int, [pw, pi])
-  
-  model= {'C_m': 4.0*pF}
-  neur = {'N': 2,    'Ni': 0}
-  reco = {'v': True, 'I': True}
-  
-  (weight, inputs) = weight_permutations(pw, pi)
-  
-  conn = {'weight':weight*2, 'delay':True, 'max_delay':10*ms}
-  inpu = {'weight':inputs,'sparseness':None}
-  
-  time = Trial(t_stop=0.5)
-  sign = GaussianNoiseGenerator(15.0, 2.0, 1).generate(time)
-
-  simu = s.Simulator(neurons= neur, record=reco, 
-           connect= conn, inputs=inpu,
-           model=model)
-  print simu.p
-  resu = simu.run(sign) 
-  return resu
-
 def one_neuron(t_stop=1.0):
   t_stop = float(t_stop)
 
@@ -48,6 +25,28 @@ def one_neuron(t_stop=1.0):
   print simu.p
   resu = simu.run(sign) 
   return resu
+
+def two_neuron(pw=0, pi=0):
+  (pw,pi) = map(int, [pw, pi])
+  
+  model= {'C_m': 4.0*pF}
+  neur = {'N': 2,    'Ni': 0}
+  reco = {'v': True, 'I': True}
+  
+  (weight, inputs) = map(nS.prod, weight_permutations(pw, pi)) 
+  conn = {'weight':weight*2, 'delay':True, 'max_delay':10*ms}
+  inpu = {'weight':inputs,'sparseness':None}
+  
+  time = Trial(t_stop=0.5)
+  sign = GaussianNoiseGenerator(15.0, 2.0, 1).generate(time)
+
+  simu = s.Simulator(neurons= neur, record=reco, 
+           connect= conn, inputs=inpu,
+           model=model)
+  print simu.p
+  resu = simu.run(sign) 
+  return resu
+
 
 def random_net(N=200,lam=1.0, pi=0.1, rs=0.02, inh=0.2):
   N = int(N)
@@ -69,20 +68,26 @@ def random_net(N=200,lam=1.0, pi=0.1, rs=0.02, inh=0.2):
   resu = simu.run(signal)
   return resu
 
+# --- LNP
+
 def two_lnp(t=1.0):
-  ''' Two neurons, one independent '''
-  dX,dY = 1,2
-  Xb = SineBasisGenerator(a=2,dim=dX).generate().signal
-  Yb = SineBasisGenerator(a=2,dim=dY).generate().signal
-
-  H = array([[[0.0, 0.0], [0.0, 0.0]],
-             [[1.0, 0.5], [-2.0, -1.0]]])
-  K = zeros((2,1,1))
-  M = array([-4., -4.0])
-
-  trial = Trial(t_start=0.0, t_stop=t, dt=0.001)
-  signal = Signal(trial, zeros((1,trial.length())))
+  ''' Two neurons, one stimulus '''
+  t = float(t)
   
+  #Xb = atleast_2d(arange(0.0, 1.2, 0.2)) #array([[0.0, 0.0, 0.0, 1.0]])
+  Yb = array([[0.0, 0.0, 0.0, 0.0, 1.0]])
+  Xb = Yb
+
+  K = array([[[6.0]], [[0.0]]])
+  H = array([[[0.0], [0.0]],[[5.0],[0.0]]])
+  M = array([-5.0, -5.0])
+
+  trial   = Trial(t_start=0.0, t_stop=t, dt=0.001)
+  indices = range(0, trial.length(), 30)
+  signal  = zeros((1, trial.length()))
+  signal[0,indices] = 1.0
+  signal = Signal(trial, signal)
+   
   simu = s.LNPSimulator(Yb,Xb,2,K,H,M)
   print simu.params
   return simu.run(signal)
@@ -134,6 +139,21 @@ def randomly_switch(W,p=0.01):
       if (i != j) and rand()<p: W[i,j] = (W[i,j]+1)%2
   return W
 
+def weight_permutations(perm_weight, perm_input):
+
+  weight = [array([[0.0, 0.0],[0.0, 0.0]]), #0: no connect
+            array([[1.0, 0.0],[0.0, 0.0]]), #1: 0,0
+            array([[0.0, 1.0],[0.0, 0.0]]), #2: 0,1
+            array([[0.0, 0.0],[1.0, 0.0]]), #3: 1,0
+            array([[0.0, 0.0],[0.0, 1.0]]), #4: 1,1
+            array([[0.0, 1.0],[1.0, 0.0]])] #5: 0,1 + 1,0
+
+  inputs = [array([0.0, 0.0]), # none
+            array([1.0, 0.0]), # 0
+            array([1.0, 1.0])] # 0 + 1
+
+  return map(atleast_2d,(weight[perm_weight],inputs[perm_input]))
+
 def taur_connector(P, Q, la=2.0):
   ''' Connector with probability related to inverted square distance of neurons
       (where 'distance' is a made-up concept based on ID numbers).'''
@@ -145,20 +165,6 @@ def taur_connector(P, Q, la=2.0):
 
 def taur_dist(i,j,la):
   return exp(-1*sqrt((i-j)**2)/la)
-
-def weight_permutations(perm_weight, perm_input):
-  weight = [array([[1.0, 0.0],[0.0, 0.0]])*nS,
-            array([[0.0, 1.0],[0.0, 0.0]])*nS,
-            array([[0.0, 0.0],[1.0, 0.0]])*nS,
-            array([[0.0, 0.0],[0.0, 1.0]])*nS,
-            array([[0.0, 1.0],[1.0, 0.0]])*nS]
-
-  inputs = [array([0.0, 0.0])*nS,
-            array([1.0, 0.0])*nS,
-            array([1.0, 1.0])*nS]
-
-  inputs = map(atleast_2d, inputs)
-  return (weight[perm_weight],inputs[perm_input])
 
 def set_connection_voltage(conn, weights):
   for i in xrange(len(weights[:,0])):
