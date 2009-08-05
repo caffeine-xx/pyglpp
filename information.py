@@ -1,38 +1,42 @@
 import numpy as np
 import scipy.stats as st
 
-def information_analysis(dat):
+def lnp_result_info(result):
+  ''' For N neurons, results 0-N are lambda monitors, and 
+      N+1-2N are inferred intensities '''
+  return (information_analysis(result.monitors['lambda']), 
+          information_analysis(result.intensity),
+          information_analysis(result.intensity,result.monitors['lambda']))
+
+def information_analysis(data1,data2=None):
   ''' Calculates mutual info and transfer entropy between:
       - Each pair of neurons (in each direction)
       - The input signal and each neuron
       The neuron signal analyzed is the log-Poisson intensity'''
-  bins = 5
-  lag = 2
-  MI = mutual_information(dat['logI'],dat['logI'],bins=bins)
-  TE_X = np.array([[transfer_entropy(x,y,lag=lag,bins=bins) 
-                    for y in dat['X']] for x in dat['logI']])
-  TE_I = np.array([[transfer_entropy(x,y,lag=lag,bins=bins)
-                    for y in dat['logI']] for x in dat['logI']])
-  return { 'TE_X':TE_X, 'TE_I':TE_I}
+  if data2==None: data2 = data1
+  MI = do_pairwise(mutual_information, data1, data2)
+  TE = do_pairwise(transfer_entropy_pdf, data1, data2)
+  return (MI, TE)
 
-def mutual_information(data1, data2, bins=10):
-  ''' Calulates a matrix of pairwise mutual informations for two
-      matrices.  Parameters:
-        - data1: a PxN1 matrix
-        - data2: a QxN2 matrix
-      Returns: a PxQ matrix of mutual information (in nats) '''
-  calc = lambda e1,e2,ec: e1+e2-ec
-  mutinf = np.zeros((len(data1),len(data2)))
-  for ii,i in enumerate(data1):
-    for jj,j in enumerate(data2):
-      pdi = pdf_1d(i,bins=bins)[0]
-      pdj = pdf_1d(j,bins=bins)[0]
-      pdc = pdf_nd([i,j],bins=bins)[0]
-      mutinf[ii,jj] = pdi.entropy()+pdj.entropy()-pdc.entropy()
-  return mutinf
+def do_pairwise(fun, data1, data2=None):
+  if data2==None: data2 = data1
+  result = np.zeros((len(data1),len(data2)))
+  for i,x in enumerate(data1):
+    for j,y in enumerate(data2):
+      result[i,j] = fun(x,y)
+  return result
+
+def mutual_information(data1, data2, bins=5):
+  ''' Calulates mutual information for two
+      vectors.  Parameters: vectors data1 & data2
+      Returns: mutual information (in nats) '''
+  pdi = pdf_1d(data1,bins=bins)[0]
+  pdj = pdf_1d(data2,bins=bins)[0]
+  pdc = pdf_nd([data1,data2],bins=bins)[0]
+  return pdi.entropy()+pdj.entropy()-pdc.entropy()
 
 def pdf_1d(i,bins=4):
-  ihist, ibins = np.histogram(i, bins=bins)
+  ihist, ibins = np.histogram(i, bins=bins,new=True)
   ipdf         = st.rv_discrete(name="i",values=[range(bins),normalize(ihist)])
   return ipdf,ibins
 
@@ -84,9 +88,23 @@ def multi_marginalize(x, axes=[0]):
     result = marginalize(result, a)
   return result
 
-def transfer_entropy(ts1,ts2,lag=1,bins=4):
-  ''' D_1<-2 '''
+def transfer_entropy_pdf(x, y, lag=2, bins=5):
+  ''' D_x<-y '''
+  x1,xt  = multi_lag(x,lag)
+  y1,yt  = multi_lag(y,lag)
+  
+  # entropies:
+  # -X_t + X_t,Y_s + X_t,X_t+1 - X_t,X_t+1,Y_s
+  px   = pdf_nd(xt,bins=bins)[0]
+  pxy  = pdf_nd(xt+yt,bins=bins)[0]
+  pxx  = pdf_nd([x1]+xt,bins=bins)[0]
+  pxxy = pdf_nd([x1]+xt+yt,bins=bins)[0]
+  
+  ex,exy,exx,exxy = map(lambda p: p.entropy(),(px, pxy, pxx, pxxy))
+  return exx+exy-ex-exxy
 
+def transfer_entropy(ts1,ts2,lag=2,bins=5):
+  ''' D_1<-2 '''
   ts1,lts1  = multi_lag(ts1,lag)
   ts2,lts2  = multi_lag(ts2,lag)
 
@@ -110,10 +128,8 @@ def transfer_entropy(ts1,ts2,lag=1,bins=4):
   acond = np.divide(auto.T, lag1.T).T
   acond = clean(acond)
   acond = do_cpdf(acond.T, avg_zeros).T
-  do_cpdf(acond, is_pdf)
-  # E log P(i_n+1 | i_(n), j_(n)) / P(i_n+1 | i_(n))
+  # E[log P(i_n+1 | i_(n), j_(n)) / P(i_n+1 | i_(n))] 
   transfer = joint * clean(np.log(np.divide(jcond , acond)))
-
   return transfer.sum()
 
 def do_cpdf(pdf, f):
@@ -127,7 +143,8 @@ def do_cpdf(pdf, f):
 
 def avg_zeros(pdf):
   ''' Takes a conditional PDF in which the last index is the random var,
-      and subsequent indices are conditional vars.  '''
+      and subsequent indices are conditional vars.  If all entries
+      are zero, turns into a uniform distribution'''
   if pdf.sum() == 0:
     pdf[:] = 1./len(pdf)
   return pdf
@@ -137,10 +154,4 @@ def is_pdf(p):
   assert (p>=0).all()
   assert (p<=1).all()
   return True
-
-def poiss_transfer_entropy(params1, params2, stim_filter, spike_filter):
-
-  (K1,H1,Mu1) = params1
-  (K2,H2,Mu2) = params2
-  
 
