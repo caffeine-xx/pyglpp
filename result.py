@@ -2,15 +2,22 @@ import config
 import cPickle
 import signals as sig
 import numpy as np
-from matplotlib import pyplot
 from scipy import io
+try:
+  from matplotlib import pyplot
+except:
+  print "no plotting library available. "
 
 class ResultPlotter:
   def __init__(self, result):
     self.result = result
 
   def plot(self):
-    pyplot.figure()
+    try:
+      pyplot.figure()
+    except:
+      "cannot plot."
+      return
     time = self.result.trial.range()
     [pyplot.plot(time, k) for k in self.result.stimulus()]
     pyplot.figure()

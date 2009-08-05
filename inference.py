@@ -85,7 +85,7 @@ class MultiNeuron(LikelihoodModel):
 
   def max_likelihood(self):
     estimator = MLEstimator(self)
-    return estimator.maximize(*self.random_args())
+    return estimator.maximize_cg(*self.random_args())
 
   def pack(self, K, H, Mu):
     shapes = (K.size, K.shape, H.size, H.shape, Mu.size, Mu.shape)

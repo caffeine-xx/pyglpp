@@ -1,5 +1,19 @@
+import config
 import numpy as np
 import scipy.stats as st
+import result as re
+reload(re)
+
+def main(prefix):
+  result = re.load_result(prefix)
+  try: 
+    an = lnp_result_info(result)
+  except: 
+    print ' (not a LNP simulation)'
+    an = information_analysis(result.intensity)
+  setattr(result, 'info', an)
+  re.save_result(prefix,result)
+  return result
 
 def lnp_result_info(result):
   ''' For N neurons, results 0-N are lambda monitors, and 
@@ -88,7 +102,7 @@ def multi_marginalize(x, axes=[0]):
     result = marginalize(result, a)
   return result
 
-def transfer_entropy_pdf(x, y, lag=2, bins=5):
+def transfer_entropy_pdf(x, y, lag=2, bins=4):
   ''' D_x<-y '''
   x1,xt  = multi_lag(x,lag)
   y1,yt  = multi_lag(y,lag)
@@ -155,3 +169,8 @@ def is_pdf(p):
   assert (p<=1).all()
   return True
 
+if(__name__=="__main__"):
+  import sys
+  prefix = config.results_dir+sys.argv[1]
+  print "=== Running information: %s" % prefix
+  main(prefix)

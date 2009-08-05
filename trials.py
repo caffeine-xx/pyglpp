@@ -70,24 +70,30 @@ def random_net(N=200,lam=1.0, pi=0.1, rs=0.02, inh=0.2):
 
 # --- LNP
 
-def two_lnp(t=1.0):
-  ''' Two neurons, one stimulus '''
+def two_lnp_rand(t=1.0):
+  ''' Two neurons, two stimuli, no connection, 5ms delay input '''
   t = float(t)
-  
-  #Xb = atleast_2d(arange(0.0, 1.2, 0.2)) #array([[0.0, 0.0, 0.0, 1.0]])
   Yb = array([[0.0, 0.0, 0.0, 0.0, 1.0]])
   Xb = Yb
+  K = array([[[5.0], [0.0]], [[0.0],[5.0]]])
+  H = array([[[0.0], [0.0]],[[0.0],[0.0]]])
+  M = array([-5.0, -4.8])
+  trial = Trial(t_start=0.0, t_stop=t, dt=0.001)
+  signal = Signal(trial, array([gaussian_wave(trial, 40)*0.6,sine_wave(trial, 40)*0.3+0.3]))
+  simu = s.LNPSimulator(Yb,Xb,2,K,H,M)
+  print simu.params
+  return simu.run(signal)
 
-  K = array([[[6.0]], [[0.0]]])
-  H = array([[[0.0], [0.0]],[[5.0],[0.0]]])
-  M = array([-5.0, -5.0])
-
+def two_lnp(t=1.0):
+  ''' Two neurons, one stimulus, 0->1 connection, 5ms delay input & net'''
+  t = float(t)
+  Yb = atleast_2d(ones(8))/3.0#
+  Xb = atleast_2d(zeros(8)); Xb[:,0]=1
+  K = array([[[6.0], [0.0]], [[0.0],[5.0]]])
+  H = array([[[0.0], [0.0]], [[7.0],[0.0]]])
+  M = array([-7.0, -7.0])
   trial   = Trial(t_start=0.0, t_stop=t, dt=0.001)
-  indices = range(0, trial.length(), 30)
-  signal  = zeros((1, trial.length()))
-  signal[0,indices] = 1.0
-  signal = Signal(trial, signal)
-   
+  signal = Signal(trial, array([gaussian_wave(trial, 20)*1.0,sine_wave(trial, 50)*0.75]))
   simu = s.LNPSimulator(Yb,Xb,2,K,H,M)
   print simu.params
   return simu.run(signal)
@@ -132,6 +138,32 @@ def random_lnp(N=20, t=0.1, lam=2.0,rs=0.02):
   print simu.params
   resu = simu.run(signal)
   return resu
+
+# --- Stimulation
+
+def sine_wave(trial, periods = 100):
+  wave = zeros(trial.length())
+  wave = sin(arange(trial.length())*2*pi*periods/trial.length())
+  return wave 
+
+def gaussian_wave(trial, inter = 100):
+  wave  = zeros(trial.length())
+  curr  = 0
+  while curr < trial.length():
+    t = random.normal(loc=trial.length()/inter, scale=trial.length()/(inter*2)) 
+    r = random.rand()
+    print r
+    wave[curr:min(curr+int(t),trial.length()-1)] = r
+    curr = curr + int(t)
+  return wave
+
+def regular_spikes(trial, inter=30):
+  indices = range(0, trial.length(), inter)
+  signal  = zeros((1, trial.length()))
+  signal[0,indices] = 1.0
+  return signal
+
+# --- Connectivity
 
 def randomly_switch(W,p=0.01):
   for i in xrange(W.shape[0]):
