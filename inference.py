@@ -56,8 +56,8 @@ class LikelihoodModel:
 
 
 default_basis_length = Trial(0,2*pi,dt=pi/16)
-default_spike_basis  = SineBasisGenerator(2,dim=2).generate(default_basis_length)
-default_stim_basis   = SineBasisGenerator(2,dim=2).generate(default_basis_length)
+default_spike_basis  = SineBasisGenerator(a=2.7,dim=2).generate(default_basis_length)
+default_stim_basis   = SineBasisGenerator(a=2.7,dim=2).generate(default_basis_length)
 
 class MultiNeuron(LikelihoodModel):
   """ Multi-neuron Poisson model with user-specified bases"""

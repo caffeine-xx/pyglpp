@@ -26,23 +26,26 @@ def one_neuron(t_stop=1.0):
   resu = simu.run(sign) 
   return resu
 
-def two_neuron(pw=0, pi=0):
-  (pw,pi) = map(int, [pw, pi])
+def two_izh(t=1.0):
+  t = float(t)
   
   model= {'C_m': 4.0*pF}
   neur = {'N': 2,    'Ni': 0}
-  reco = {'v': True, 'I': True}
+  reco = {'v': True, 'I': False}
   
-  (weight, inputs) = map(nS.prod, weight_permutations(pw, pi)) 
-  conn = {'weight':weight*2, 'delay':True, 'max_delay':10*ms}
-  inpu = {'weight':inputs,'sparseness':None}
-  
-  time = Trial(t_stop=0.5)
-  sign = GaussianNoiseGenerator(15.0, 2.0, 1).generate(time)
+  H = array([[0.0, 0.0],[1.0, 0.0]])*2*nS 
+  K = array([[1.0, 0.0],[0.0, 1.0]])*2*nS
+
+  inpu = {'weight':K, 'sparseness':None}
+  conn = {'weight':H, 'delay':True, 'max_delay':10*ms}
+
+  trial = Trial(t_start=0.0, t_stop=t, dt=0.001)
+  sign  = Signal(trial, array([gaussian_wave(trial, 15*t)*10.0, gaussian_wave(trial, 15*t)*10.0]))
 
   simu = s.Simulator(neurons= neur, record=reco, 
            connect= conn, inputs=inpu,
            model=model)
+
   print simu.p
   resu = simu.run(sign) 
   return resu
@@ -87,13 +90,19 @@ def two_lnp_rand(t=1.0):
 def two_lnp(t=1.0):
   ''' Two neurons, one stimulus, 0->1 connection, 5ms delay input & net'''
   t = float(t)
-  Yb = atleast_2d(ones(8))/3.0#
-  Xb = atleast_2d(zeros(8)); Xb[:,0]=1
-  K = array([[[6.0], [0.0]], [[0.0],[5.0]]])
-  H = array([[[0.0], [0.0]], [[7.0],[0.0]]])
-  M = array([-7.0, -7.0])
+  dX,dY = 2,2
+  Xb = SineBasisGenerator(a=2.7,dim=dX).generate().signal
+  Yb = SineBasisGenerator(a=2.7,dim=dY).generate().signal
+  #Yb = atleast_2d(ones(8))/3.0#
+  #Xb = atleast_2d(zeros(8)); Xb[:,0]=1
+  K = array([[[0.8, 0.4], [0.0, 0.0]], 
+             [[0.0, 0.0], [0.2, 0.1]]])
+
+  H = array([[[0.0, 0.0], [0.0, 0.0]], 
+             [[0.6, 0.3], [0.0, 0.0]]])
+  M = array([-4.0, -4.0])
   trial   = Trial(t_start=0.0, t_stop=t, dt=0.001)
-  signal = Signal(trial, array([gaussian_wave(trial, 20)*1.0,sine_wave(trial, 50)*0.75]))
+  signal = Signal(trial, array([gaussian_wave(trial, 15*t), gaussian_wave(trial, 15*t)]))
   simu = s.LNPSimulator(Yb,Xb,2,K,H,M)
   print simu.params
   return simu.run(signal)

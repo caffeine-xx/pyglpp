@@ -204,14 +204,14 @@ class SineWaveGenerator(SignalGenerator):
 class SineBasisGenerator(SignalGenerator):
   ''' Creates sinusoidal bases as described in:
       Pillow et al., Nature 2009, Supplemental Methods '''
-  def __init__(self, a=7, c=1.0, dim=1):
+  def __init__(self, a=2.7, c=1.0, dim=1):
     ''' a - Parameter determining "width" of curves
         c - Parameter determining translation of curves '''
     self.a = a
     self.c = c
     self.dim = dim
 
-  def generate(self, trial=Trial(0,2*pi,pi/16)):
+  def generate(self, trial=Trial(0.0,2*pi,pi/16)):
     phi = lambda j: (j+0.001) * pi / (2)
     dis = vectorize(lambda t: self.a * log(t + self.c))
     domain = vectorize(lambda j,t: dis(t) > (phi(j) - pi) and dis(t) < (phi(j) + pi))

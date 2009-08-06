@@ -18,9 +18,9 @@ def main(prefix):
 def lnp_result_info(result):
   ''' For N neurons, results 0-N are lambda monitors, and 
       N+1-2N are inferred intensities '''
-  return (information_analysis(result.monitors['lambda']), 
-          information_analysis(result.intensity),
-          information_analysis(result.intensity,result.monitors['lambda']))
+  return {'Simulator':information_analysis(result.monitors['lambda']), 
+          'Inferred':information_analysis(result.intensity),
+          'Sim->Inf':information_analysis(result.intensity,result.monitors['lambda'])}
 
 def information_analysis(data1,data2=None):
   ''' Calculates mutual info and transfer entropy between:
@@ -30,7 +30,7 @@ def information_analysis(data1,data2=None):
   if data2==None: data2 = data1
   MI = do_pairwise(mutual_information, data1, data2)
   TE = do_pairwise(transfer_entropy_pdf, data1, data2)
-  return (MI, TE)
+  return {'MI':MI, 'TE':TE}
 
 def do_pairwise(fun, data1, data2=None):
   if data2==None: data2 = data1
@@ -106,16 +106,13 @@ def transfer_entropy_pdf(x, y, lag=2, bins=4):
   ''' D_x<-y '''
   x1,xt  = multi_lag(x,lag)
   y1,yt  = multi_lag(y,lag)
-  
   # entropies:
   # -X_t + X_t,Y_s + X_t,X_t+1 - X_t,X_t+1,Y_s
-  px   = pdf_nd(xt,bins=bins)[0]
-  pxy  = pdf_nd(xt+yt,bins=bins)[0]
-  pxx  = pdf_nd([x1]+xt,bins=bins)[0]
-  pxxy = pdf_nd([x1]+xt+yt,bins=bins)[0]
-  
-  ex,exy,exx,exxy = map(lambda p: p.entropy(),(px, pxy, pxx, pxxy))
-  return exx+exy-ex-exxy
+  px   = pdf_nd(xt,bins=bins)[0].entropy()
+  pxy  = pdf_nd(xt+yt,bins=bins)[0].entropy()
+  pxx  = pdf_nd([x1]+xt,bins=bins)[0].entropy()
+  pxxy = pdf_nd([x1]+xt+yt,bins=bins)[0].entropy()
+  return pxx+pxy-px-pxxy
 
 def transfer_entropy(ts1,ts2,lag=2,bins=5):
   ''' D_1<-2 '''
@@ -169,8 +166,17 @@ def is_pdf(p):
   assert (p<=1).all()
   return True
 
+def pretty_print(d):
+  if d.__class__ == dict: 
+    for k in d:
+      print k+':\n'
+      pretty_print(d[k])
+  else:
+    print d
+
 if(__name__=="__main__"):
   import sys
   prefix = config.results_dir+sys.argv[1]
   print "=== Running information: %s" % prefix
-  main(prefix)
+  re = main(prefix)
+  pretty_print(re.info)
