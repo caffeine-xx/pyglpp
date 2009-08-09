@@ -2,10 +2,12 @@ from matplotlib import pylab
 from numpy import *
 from brian import *
 from brian.library.IF import *
+
 import cPickle
 
 import simulator as s
 from signals import *
+
 def one_neuron(t_stop=1.0):
   t_stop = float(t_stop)
 
@@ -29,27 +31,25 @@ def one_neuron(t_stop=1.0):
 def two_izh(t=1.0):
   t = float(t)
   
-  model= {'C_m': 4.0*pF}
+  model= {'C_m': 3.5*pF, 'te':6.0*ms}
   neur = {'N': 2,    'Ni': 0}
   reco = {'v': True, 'I': False}
-  
-  H = array([[0.0, 0.0],[1.0, 0.0]])*2*nS 
-  K = array([[1.0, 0.0],[0.0, 1.0]])*2*nS
+
+  K = array([[1.0, 0.0],[1.0, 0.0]])*1*nS
+  H = array([[0.0, 2.0],[0.0, 0.0]])*1*nS 
 
   inpu = {'weight':K, 'sparseness':None}
   conn = {'weight':H, 'delay':True, 'max_delay':10*ms}
 
   trial = Trial(t_start=0.0, t_stop=t, dt=0.001)
-  sign  = Signal(trial, array([gaussian_wave(trial, 15*t)*10.0, gaussian_wave(trial, 15*t)*10.0]))
-
-  simu = s.Simulator(neurons= neur, record=reco, 
-           connect= conn, inputs=inpu,
-           model=model)
+  sign  = Signal(trial, array([gaussian_wave(trial.length(), 25*t)*75.0, 
+                               gaussian_wave(trial.length(), 25*t)*75.0]))
+  simu  = s.Simulator(neurons= neur, record=reco, connect= conn, inputs=inpu,
+                      model=model)
 
   print simu.p
   resu = simu.run(sign) 
   return resu
-
 
 def random_net(N=200,lam=1.0, pi=0.1, rs=0.02, inh=0.2):
   N = int(N)
@@ -73,6 +73,23 @@ def random_net(N=200,lam=1.0, pi=0.1, rs=0.02, inh=0.2):
 
 # --- LNP
 
+def two_lnp(t=1.0):
+  ''' Two neurons, two separate stimuli, 0->1 connection'''
+  dX,dY = 2,2
+  t  = float(t)
+  Xb = SineBasisGenerator(a=2.7,dim=dX).generate().signal
+  Yb = SineBasisGenerator(a=2.7,dim=dY).generate().signal
+  K  = array([[[0.8, 0.4], [0.0, 0.0]], 
+             [[0.0, 0.0], [0.2, 0.1]]])
+  H  = array([[[0.0, 0.0], [0.0, 0.0]], 
+             [[0.6, 0.3], [0.0, 0.0]]])
+  M  = array([-4.0, -4.0])
+  trial   = Trial(t_start=0.0, t_stop=t, dt=0.001)
+  signal  = Signal(trial, array([gaussian_wave(trial.length(), 15*t), gaussian_wave(trial.length(), 15*t)]))
+  simu    = s.LNPSimulator(Yb,Xb,2,K,H,M)
+  print simu.params
+  return simu.run(signal)
+
 def two_lnp_rand(t=1.0):
   ''' Two neurons, two stimuli, no connection, 5ms delay input '''
   t = float(t)
@@ -82,30 +99,33 @@ def two_lnp_rand(t=1.0):
   H = array([[[0.0], [0.0]],[[0.0],[0.0]]])
   M = array([-5.0, -4.8])
   trial = Trial(t_start=0.0, t_stop=t, dt=0.001)
-  signal = Signal(trial, array([gaussian_wave(trial, 40)*0.6,sine_wave(trial, 40)*0.3+0.3]))
+  signal = Signal(trial, array([gaussian_wave(trial.length(), 40)*0.6,sine_wave(trial.length(), 40)*0.3+0.3]))
   simu = s.LNPSimulator(Yb,Xb,2,K,H,M)
   print simu.params
   return simu.run(signal)
 
-def two_lnp(t=1.0):
-  ''' Two neurons, one stimulus, 0->1 connection, 5ms delay input & net'''
+def two_lnp_delay(t=1.0, delay=16):
+  ''' Two LNP neurons, unconnected. 
+      Stimulus A: Gaussian Wave
+      Stimulus B: Delayed fn of gaussian wave '''
   t = float(t)
-  dX,dY = 2,2
-  Xb = SineBasisGenerator(a=2.7,dim=dX).generate().signal
-  Yb = SineBasisGenerator(a=2.7,dim=dY).generate().signal
-  #Yb = atleast_2d(ones(8))/3.0#
-  #Xb = atleast_2d(zeros(8)); Xb[:,0]=1
-  K = array([[[0.8, 0.4], [0.0, 0.0]], 
-             [[0.0, 0.0], [0.2, 0.1]]])
+  delay = int(delay)
 
-  H = array([[[0.0, 0.0], [0.0, 0.0]], 
-             [[0.6, 0.3], [0.0, 0.0]]])
-  M = array([-4.0, -4.0])
-  trial   = Trial(t_start=0.0, t_stop=t, dt=0.001)
-  signal = Signal(trial, array([gaussian_wave(trial, 15*t), gaussian_wave(trial, 15*t)]))
-  simu = s.LNPSimulator(Yb,Xb,2,K,H,M)
+  Xb = SineBasisGenerator(a=2.7,dim=2).generate().signal
+  Yb = SineBasisGenerator(a=2.7,dim=2).generate().signal
+  K  = array([[[0.8, 0.4], [0.0, 0.0]], [[0.0, 0.0], [0.8, 0.4]]])
+  H  = zeros((2,2,2))
+  M  = array([-4.0, -5.5])
+
+  trial = Trial(t_start=0.0, t_stop=t, dt=0.001)
+  wave  = gaussian_wave(trial.length()+delay, 15*t)
+  dfun  = lambda p: p*0.6+0.4+random.randn()*0.01
+  X1,X2 = delay_fn(dfun, wave, delay=delay)
+  Xsig  = Signal(trial, array([X1, X2]))
+  simu  = s.LNPSimulator(Yb, Xb, 2, K, H, M)
+
   print simu.params
-  return simu.run(signal)
+  return simu.run(Xsig)
 
 def random_lnp(N=20, t=0.1, lam=2.0,rs=0.02):
 
@@ -150,19 +170,27 @@ def random_lnp(N=20, t=0.1, lam=2.0,rs=0.02):
 
 # --- Stimulation
 
-def sine_wave(trial, periods = 100):
-  wave = zeros(trial.length())
-  wave = sin(arange(trial.length())*2*pi*periods/trial.length())
+def delay_fn(fun, vec, delay=1):
+  ''' Map the vector vec through fun, but delayed:
+        out_t = fun(vec_{t-delay}) 
+        Size is out.size-delay
+      Returns (resized vec, out) '''
+  delayed = roll(vec, -1*delay)[:-delay]
+  vecfun = vectorize(fun)
+  return vec[delay:],vecfun(delayed)
+
+def sine_wave(length, periods = 100):
+  wave = zeros(length)
+  wave = sin(arange(length)*2*pi*periods/length)
   return wave 
 
-def gaussian_wave(trial, inter = 100):
-  wave  = zeros(trial.length())
+def gaussian_wave(length, inter = 100):
+  wave  = zeros(length)
   curr  = 0
-  while curr < trial.length():
-    t = random.normal(loc=trial.length()/inter, scale=trial.length()/(inter*2)) 
+  while curr < length:
+    t = random.normal(loc=length/inter, scale=length/(inter*2)) 
     r = random.rand()
-    print r
-    wave[curr:min(curr+int(t),trial.length()-1)] = r
+    wave[curr:min(curr+int(t),length-1)] = r
     curr = curr + int(t)
   return wave
 

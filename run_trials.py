@@ -27,4 +27,4 @@ if(__name__=="__main__"):
   resu = run_trial(trial,prefix,*args)
 
   try: result.ResultPlotter(resu).plot()
-  except: print "Couldn't plot: "
+  except: print "Couldn't plot"

@@ -53,11 +53,9 @@ class LikelihoodModel:
     for i,s in enumerate(sparse):
       self.spikes[i,s]=1
 
-
-
 default_basis_length = Trial(0,2*pi,dt=pi/16)
-default_spike_basis  = SineBasisGenerator(a=2.7,dim=2).generate(default_basis_length)
-default_stim_basis   = SineBasisGenerator(a=2.7,dim=2).generate(default_basis_length)
+default_spike_basis  = SineBasisGenerator(a=7.0,dim=2).generate(default_basis_length)
+default_stim_basis   = SineBasisGenerator(a=7.0,dim=2).generate(default_basis_length)
 
 class MultiNeuron(LikelihoodModel):
   """ Multi-neuron Poisson model with user-specified bases"""
@@ -85,7 +83,7 @@ class MultiNeuron(LikelihoodModel):
 
   def max_likelihood(self):
     estimator = MLEstimator(self)
-    return estimator.maximize_cg(*self.random_args())
+    return estimator.maximize(*self.random_args())
 
   def pack(self, K, H, Mu):
     shapes = (K.size, K.shape, H.size, H.shape, Mu.size, Mu.shape)
@@ -198,7 +196,6 @@ class MLEstimator(LikelihoodModel):
     theta, shape = self.model.pack(*tuple(self.model.logL_grad(*a)))
     return -1.0 * theta
 
-  @print_timing
   def logL_hess_p(self, theta, p, *args):
     a = self.model.unpack(theta, args)
     p = self.model.unpack(p, args)
@@ -221,7 +218,7 @@ class MLEstimator(LikelihoodModel):
     theta, args = self.model.pack(*a)
     theta = opt.fmin_ncg(f=self.logL, x0=theta, fprime=self.logL_grad, 
                          fhess_p=self.logL_hess_p, 
-                         args=args, maxiter=30,
+                         args=args, maxiter=300,
                          callback=self.callback)
     return self.model.unpack(theta, args)
 
