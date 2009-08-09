@@ -89,6 +89,9 @@ def save_result(filename,result):
 def export_result(filename,result):
   io.savemat(filename,result.export_dict())
 
+def plot_result(result):
+  ResultPlotter(result).plot()
+
 if(__name__=="__main__"):
   import sys
   prefix = sys.argv[1]

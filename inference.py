@@ -83,7 +83,7 @@ class MultiNeuron(LikelihoodModel):
 
   def max_likelihood(self):
     estimator = MLEstimator(self)
-    return estimator.maximize(*self.random_args())
+    return estimator.maximize_cg(*self.random_args())
 
   def pack(self, K, H, Mu):
     shapes = (K.size, K.shape, H.size, H.shape, Mu.size, Mu.shape)
@@ -144,9 +144,9 @@ class MultiNeuron(LikelihoodModel):
     return dK, dH, dM
 
   def logL_hess_p_inc(self, K, H, Mu, K1, H1, Mu1):
-    # Temp variables for easy naming
-    Xf     = self.base_stims
-    Yf     = self.base_spikes
+
+    Xf = self.base_stims
+    Yf = self.base_spikes
 
     PK = np.zeros(K.shape,dtype='float64')
     PH = np.zeros(H.shape,dtype='float64')
@@ -204,11 +204,12 @@ class MLEstimator(LikelihoodModel):
     theta, shape = self.model.pack(*hp)
     return -1.0 * theta
 
+  @print_timing
   def maximize_cg(self,*a):
-    ''' Doesn't use Hessian matrix - used for checking the Hessian version '''
+    print 'Maximizing using Gradient Descent'
     self.iters=0
     theta, args = self.model.pack(*a)
-    theta = opt.fmin_cg(self.logL, theta, self.logL_grad,  args=args, maxiter=500, gtol=1.0e-02, callback=self.callback)
+    theta = opt.fmin_cg(self.logL, theta, self.logL_grad,  args=args, maxiter=500, gtol=1.0e-05, callback=self.callback)
     return self.model.unpack(theta, args)
 
   @print_timing
@@ -218,7 +219,7 @@ class MLEstimator(LikelihoodModel):
     theta, args = self.model.pack(*a)
     theta = opt.fmin_ncg(f=self.logL, x0=theta, fprime=self.logL_grad, 
                          fhess_p=self.logL_hess_p, 
-                         args=args, maxiter=300,
+                         args=args, maxiter=None, avextol=1.0e-06,
                          callback=self.callback)
     return self.model.unpack(theta, args)
 
