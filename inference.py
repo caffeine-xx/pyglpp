@@ -83,7 +83,7 @@ class MultiNeuron(LikelihoodModel):
 
   def max_likelihood(self):
     estimator = MLEstimator(self)
-    return estimator.maximize_cg(*self.random_args())
+    return estimator.maximize(*self.random_args())
 
   def pack(self, K, H, Mu):
     shapes = (K.size, K.shape, H.size, H.shape, Mu.size, Mu.shape)
@@ -219,7 +219,7 @@ class MLEstimator(LikelihoodModel):
     theta, args = self.model.pack(*a)
     theta = opt.fmin_ncg(f=self.logL, x0=theta, fprime=self.logL_grad, 
                          fhess_p=self.logL_hess_p, 
-                         args=args, maxiter=None, avextol=1.0e-06,
+                         args=args, maxiter=None, avextol=1.0e-10,
                          callback=self.callback)
     return self.model.unpack(theta, args)
 
