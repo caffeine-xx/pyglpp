@@ -50,7 +50,6 @@ def mutual_information(data1, data2, bins=5):
   print pdi.entropy()
   print pdj.entropy()
   print pdc.entropy()
-
   return pdi.entropy()+pdj.entropy()-pdc.entropy()
 
 def pdf_1d(i,bins=4):

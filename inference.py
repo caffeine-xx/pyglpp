@@ -54,15 +54,15 @@ class LikelihoodModel:
       self.spikes[i,s]=1
 
 default_basis_length = Trial(0,2*pi,dt=pi/16)
-default_spike_basis  = SineBasisGenerator(a=7.0,dim=2).generate(default_basis_length)
-default_stim_basis   = SineBasisGenerator(a=7.0,dim=2).generate(default_basis_length)
+default_spike_basis  = SineBasisGenerator(a=2.7,dim=4).generate(default_basis_length)
+default_stim_basis   = SineBasisGenerator(a=2.7,dim=4).generate(default_basis_length)
 
 class MultiNeuron(LikelihoodModel):
   """ Multi-neuron Poisson model with user-specified bases"""
   def __init__(self, stim_basis=default_stim_basis.signal, 
                      spike_basis=default_spike_basis.signal):
-    self.stim_basis  = stim_basis
-    self.spike_basis = spike_basis
+    self.stim_basis  = stim_basis*0.1
+    self.spike_basis = spike_basis*0.1
     self.spike_b     = spike_basis.shape[0]
     self.stim_b      = stim_basis.shape[0]
 
@@ -187,21 +187,28 @@ class MLEstimator(LikelihoodModel):
   def __init__(self, model):
     self.model = model
 
+  @print_timing
   def logL(self,theta, *args):
     a = self.model.unpack(theta, args)
-    return -1.0 * self.model.logL(*a)
+    l = -1.0 * self.model.logL(*a)
+    print l
+    return l
 
+  @print_timing
   def logL_grad(self,theta, *args):
     a = self.model.unpack(theta, args)
     theta, shape = self.model.pack(*tuple(self.model.logL_grad(*a)))
+    #print theta
     return -1.0 * theta
 
+  @print_timing
   def logL_hess_p(self, theta, p, *args):
     a = self.model.unpack(theta, args)
     p = self.model.unpack(p, args)
     args = tuple(a+p)
     hp = self.model.logL_hess_p_inc(*args)
     theta, shape = self.model.pack(*hp)
+    #print theta
     return -1.0 * theta
 
   @print_timing
