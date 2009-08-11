@@ -15,45 +15,42 @@ def main(prefix):
   re.save_result(prefix,result)
   return result
 
-def lnp_result_info(result):
+def lnp_result_info(result, bins=64, lag=1, sp=8):
   ''' For N neurons, results 0-N are lambda monitors, and 
       N+1-2N are inferred intensities '''
   return {'Simulator':information_analysis(result.monitors['lambda']), 
-          'Inferred':information_analysis(result.intensity),
-          'Sim->Inf':information_analysis(result.intensity,result.monitors['lambda'])}
+          'Inferred':information_analysis(result.intensity, bins=bins, lag=lag, sp=sp),
+          'Sim->Inf':information_analysis(result.intensity,result.monitors['lambda'], bins=bins, lag=lag, sp=sp)}
 
-def information_analysis(data1,data2=None):
+def information_analysis(data1, data2=None, bins=16, lag=2, sp=16):
   ''' Calculates mutual info and transfer entropy between:
       - Each pair of neurons (in each direction)
       - The input signal and each neuron
       The neuron signal analyzed is the log-Poisson intensity'''
   if data2==None: data2 = data1
-  MI = do_pairwise(mutual_information, data1, data2)
-  TE = do_pairwise(transfer_entropy_pdf, data1, data2)
+  MI = do_pairwise(mutual_information, data1, data2, bins=bins)
+  TE = do_pairwise(transfer_entropy_pdf, data1, data2, bins=bins, lag=lag, sp=sp)
   return {'MI':MI, 'TE':TE}
 
-def do_pairwise(fun, data1, data2=None):
+def do_pairwise(fun, data1, data2=None, **kwargs):
   if data2==None: data2 = data1
   result = np.zeros((len(data1),len(data2)))
   for i,x in enumerate(data1):
     for j,y in enumerate(data2):
-      result[i,j] = fun(x,y)
+      result[i,j] = fun(x,y,**kwargs)
   return result
 
-def mutual_information(data1, data2, bins=5):
+def mutual_information(data1, data2, bins=64):
   ''' Calulates mutual information for two
       vectors.  Parameters: vectors data1 & data2
       Returns: mutual information (in nats) '''
   pdi = pdf_1d(data1,bins=bins)[0]
   pdj = pdf_1d(data2,bins=bins)[0]
   pdc = pdf_nd([data1,data2],bins=bins)[0]
-  print pdi.entropy()
-  print pdj.entropy()
-  print pdc.entropy()
-  return pdi.entropy()+pdj.entropy()-pdc.entropy()
+  return pdi._entropy()+pdj._entropy()-pdc._entropy()
 
 def pdf_1d(i,bins=4):
-  ihist, ibins = np.histogram(i, bins=bins,new=True)
+  ihist, ibins = np.histogram(i, bins=bins)
   ipdf         = st.rv_discrete(name="i",values=[range(bins),normalize(ihist)])
   return ipdf,ibins
 
@@ -86,14 +83,14 @@ def clean(hist):
 def h2pdf(hist,axis=None):
   return clean(normalize(hist,axis=axis))
 
-def multi_lag(x, L=1):
+def multi_lag(x, L=1, sp=1):
   ''' Generates clipped, lagged timeseries from the original x.
   Returns a tuple containing:
     - newest: unlagged timeseries 
     - lagged: list of L timeseries, where lagged[i] is
               L-i timesteps lag '''
-  newest = np.roll(x,-L)[:-L]
-  lagged = [np.roll(x,-l)[:-L] for l in range(L)]
+  newest = np.roll(x,-L*sp)[:-L*sp]
+  lagged = [np.roll(x,-l)[:-L*sp] for l in range(0,L*sp,sp)]
   return newest,lagged
 
 def multi_marginalize(x, axes=[0]):
@@ -105,16 +102,16 @@ def multi_marginalize(x, axes=[0]):
     result = marginalize(result, a)
   return result
 
-def transfer_entropy_pdf(x, y, lag=2, bins=4):
+def transfer_entropy_pdf(x, y, lag=1, bins=64, sp=16):
   ''' D_x<-y '''
-  x1,xt  = multi_lag(x,lag)
-  y1,yt  = multi_lag(y,lag)
+  x1,xt  = multi_lag(x,lag,sp)
+  y1,yt  = multi_lag(y,lag,sp)
   # entropies:
   # -X_t + X_t,Y_s + X_t,X_t+1 - X_t,X_t+1,Y_s
-  px   = pdf_nd(xt,bins=bins)[0].entropy()
-  pxy  = pdf_nd(xt+yt,bins=bins)[0].entropy()
-  pxx  = pdf_nd([x1]+xt,bins=bins)[0].entropy()
-  pxxy = pdf_nd([x1]+xt+yt,bins=bins)[0].entropy()
+  px   = pdf_nd(xt,bins=bins)[0]._entropy()
+  pxy  = pdf_nd(xt+yt,bins=bins)[0]._entropy()
+  pxx  = pdf_nd([x1]+xt,bins=bins)[0]._entropy()
+  pxxy = pdf_nd([x1]+xt+yt,bins=bins)[0]._entropy()
   return pxx+pxy-px-pxxy
 
 def transfer_entropy(ts1,ts2,lag=2,bins=5):
